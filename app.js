@@ -170,8 +170,8 @@ function buildChips(host, items, opts) {
     }
     b.addEventListener('click', () => {
       setChip(host, item.key);
-      // Dismiss the numeric keypad — iOS gives it no "done" key, so the
-      // category tap is what gets the Save button back on screen.
+      // iOS gives the decimal keypad no "done" key, so dismiss it whenever
+      // the user leaves the amount to touch a chip.
       const amt = $('#amount');
       if (document.activeElement === amt) amt.blur();
       if (opts.onPick) opts.onPick(item.key);
@@ -624,6 +624,21 @@ function toast(msg) {
 
 /* ── wiring ─────────────────────────────────────────────── */
 
+function trackKeyboard() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const bar = document.querySelector('.actions');
+  if (!bar) return;
+
+  const apply = () => {
+    const overlap = window.innerHeight - (vv.height + vv.offsetTop);
+    bar.style.bottom = overlap > 60 ? overlap + 'px' : '';
+  };
+  vv.addEventListener('resize', apply);
+  vv.addEventListener('scroll', apply);
+  apply();
+}
+
 function init() {
   $('#cur-symbol').textContent = TRIP.symbol;
 
@@ -666,6 +681,7 @@ function init() {
 
   switchView('add');
   updateBanner();
+  trackKeyboard();
 
   // The date rolls over and the 20:00 banner needs re-checking after a
   // long backgrounding, so re-evaluate whenever the app comes back.

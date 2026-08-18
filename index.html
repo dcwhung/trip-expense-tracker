@@ -29,6 +29,16 @@
     <h1 class="screen-title">入數</h1>
 
     <form id="entry-form" novalidate>
+      <label class="field">
+        <span class="label">日期</span>
+        <input id="date" type="date">
+      </label>
+
+      <div class="field">
+        <span class="label">Category</span>
+        <div id="cat-grid" class="grid grid-3"></div>
+      </div>
+
       <label class="field amount-field">
         <span class="label">金額</span>
         <div class="amount-row">
@@ -39,24 +49,14 @@
       </label>
 
       <div class="field">
-        <span class="label">Category</span>
-        <div id="cat-grid" class="grid grid-3"></div>
+        <span class="label">Payment</span>
+        <div id="pay-grid" class="grid grid-3 seg"></div>
       </div>
 
       <div class="field">
         <span class="label">Account</span>
         <div id="acct-grid" class="grid grid-2 seg"></div>
       </div>
-
-      <div class="field">
-        <span class="label">Payment</span>
-        <div id="pay-grid" class="grid grid-3 seg"></div>
-      </div>
-
-      <label class="field">
-        <span class="label">日期</span>
-        <input id="date" type="date">
-      </label>
 
       <label class="field">
         <span class="label">Description <em>可留空</em></span>

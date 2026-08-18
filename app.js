@@ -94,38 +94,36 @@ function dayNumber(iso) {
 
 /* ── money ──────────────────────────────────────────────── */
 
+// Splits an amount string into its integer and fraction digits.
+// Rule: the LAST separator is the decimal point, anything before it is
+// thousands grouping, and at most two fraction digits count. Guessing that
+// "12.345" meant thousands is what once turned €12.34 into €12,345.00.
+function splitAmount(raw) {
+  const s = String(raw == null ? '' : raw).replace(/[^\d.,]/g, '');
+  const lastSep = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
+  if (lastSep < 0) return { int: s, frac: '', sep: '' };
+  return {
+    int: s.slice(0, lastSep).replace(/[.,]/g, ''),
+    frac: s.slice(lastSep + 1).replace(/[.,]/g, '').slice(0, 2),
+    sep: s[lastSep],
+  };
+}
+
+// What the amount field is allowed to contain — applied on every keystroke so
+// a third decimal digit simply never appears.
+function normaliseAmountInput(raw) {
+  const p = splitAmount(raw);
+  return p.sep ? p.int + p.sep + p.frac : p.int;
+}
+
 // Returns integer minor units, or null when the text is not a usable amount.
-// Accepts "12.50", "12,50", "1,234.56", "1.234,56" — iOS shows whichever
-// decimal separator the phone's locale uses, so both must work.
+// Accepts "12.50" and "12,50" alike — iOS shows whichever decimal separator
+// the phone's locale uses.
 function parseAmount(raw) {
   if (raw == null) return null;
-  let s = String(raw).trim().replace(/[\s €£$]/g, '');
-  if (!s) return null;
-
-  const lastComma = s.lastIndexOf(',');
-  const lastDot = s.lastIndexOf('.');
-  let sep = null;
-  if (lastComma > -1 && lastDot > -1) {
-    sep = lastComma > lastDot ? ',' : '.';
-  } else if (lastComma > -1) {
-    const after = s.length - lastComma - 1;
-    if (s.indexOf(',') === lastComma && after > 0 && after <= 2) sep = ',';
-  } else if (lastDot > -1) {
-    const after = s.length - lastDot - 1;
-    if (s.indexOf('.') === lastDot && after > 0 && after <= 2) sep = '.';
-  }
-
-  let intPart = s, fracPart = '';
-  if (sep) {
-    const i = s.lastIndexOf(sep);
-    intPart = s.slice(0, i);
-    fracPart = s.slice(i + 1);
-  }
-  intPart = intPart.replace(/[.,]/g, '');
-  if (!/^\d*$/.test(intPart) || !/^\d*$/.test(fracPart)) return null;
-  if (intPart === '' && fracPart === '') return null;
-
-  const minor = parseInt(intPart || '0', 10) * 100 + parseInt((fracPart + '00').slice(0, 2), 10);
+  const p = splitAmount(raw);
+  if (p.int === '' && p.frac === '') return null;
+  const minor = parseInt(p.int || '0', 10) * 100 + parseInt((p.frac + '00').slice(0, 2), 10);
   return Number.isFinite(minor) ? minor : null;
 }
 
@@ -647,6 +645,12 @@ function init() {
   buildChips($('#pay-grid'), PAYMENTS.map((k) => ({ key: k })), { icons: false });
 
   resetForm();
+
+  const amountInput = $('#amount');
+  amountInput.addEventListener('input', () => {
+    const cleaned = normaliseAmountInput(amountInput.value);
+    if (cleaned !== amountInput.value) amountInput.value = cleaned;
+  });
 
   $('#entry-form').addEventListener('submit', onSubmit);
   $('#delete-btn').addEventListener('click', onDelete);

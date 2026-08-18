@@ -43,7 +43,7 @@ ctx.window.scrollTo = () => {};
 
 const src = fs.readFileSync('app.js', 'utf8') + `
 globalThis.__T = {
-  parseAmount, toCSV, toText, dayNumber, money, plain, csvCell, TRIP, TRIP_DAYS,
+  parseAmount, normaliseAmountInput, toCSV, toText, dayNumber, money, plain, csvCell, TRIP, TRIP_DAYS,
   setEntries: (v) => { entries = v; },
 };`;
 vm.createContext(ctx);
@@ -61,11 +61,26 @@ const cases = [
   ['12.50', 1250], ['12,50', 1250], ['1234.56', 123456], ['1,234.56', 123456],
   ['1.234,56', 123456], ['0', 0], ['0.01', 1], ['.5', 50], ['5.', 500],
   ['1.5', 150], ['€12.50', 1250], [' 12.50 ', 1250], ['1234', 123400],
-  ['', null], ['abc', null], ['1.2.3', 12300], ['12.345', 1234500],
+  ['', null], ['abc', null],
+  // Regression: a third decimal digit must never be read as thousands
+  // grouping. "12.345" once became €12,345.00 — a 1000x error.
+  ['12.345', 1234], ['12,345', 1234], ['0.005', 0], ['9.999', 999],
+  ['1.2.3', 1230], ['1234.567', 123456],
 ];
 cases.forEach(([input, want]) => {
   check(JSON.stringify(input) + ' → ' + want, () =>
     assert.strictEqual(T.parseAmount(input), want));
+});
+
+console.log('\n── normaliseAmountInput (typing filter) ──');
+[
+  ['12.345', '12.34'], ['12.3456', '12.34'], ['12,345', '12,34'],
+  ['12.34', '12.34'], ['12', '12'], ['12.', '12.'], ['.5', '.5'],
+  ['1,234.56', '1234.56'], ['1.234,56', '1234,56'],
+  ['12a.3b4', '12.34'], ['', ''],
+].forEach(([input, want]) => {
+  check(JSON.stringify(input) + ' → ' + JSON.stringify(want), () =>
+    assert.strictEqual(T.normaliseAmountInput(input), want));
 });
 
 console.log('\n── dayNumber ──');

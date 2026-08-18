@@ -120,6 +120,35 @@ const check = (name, cond, extra) => {
   await page.screenshot({ path: OUT + '/04-offline.png', fullPage: true });
   await ctx.setOffline(false);
 
+  console.log('\n── three-decimal regression (reported bug) ──');
+  await page.click('.tab[data-view="add"]');
+  await page.waitForTimeout(150);
+  await page.fill('#amount', '12.345');
+  check('field clamps to two decimals while typing',
+    (await page.inputValue('#amount')) === '12.34',
+    await page.inputValue('#amount'));
+  await page.click('#cat-grid .chip[data-value="Food"]');
+  await page.click('#submit-btn');
+  await page.waitForTimeout(200);
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(150);
+  check('saved as €12.34, not €12,345.00',
+    (await page.textContent('#sum-total')) === '€31.14',
+    await page.textContent('#sum-total'));
+
+  // Same path through edit, which is where the bug was noticed. Target the
+  // row by amount: the clock is frozen, so every createdAt is identical and
+  // row order within the day is arbitrary.
+  await page.click('#list .row:has(.row-amt:text-is("€12.34"))');
+  await page.waitForTimeout(150);
+  await page.fill('#amount', '9.999');
+  check('edit field clamps too', (await page.inputValue('#amount')) === '9.99',
+    await page.inputValue('#amount'));
+  await page.click('#submit-btn');
+  await page.waitForTimeout(200);
+  check('edit saved as €9.99', (await page.textContent('#sum-total')) === '€28.79',
+    await page.textContent('#sum-total'));
+
   check('no page errors', errors.length === 0, errors.join('; '));
   console.log('\n' + pass + ' passed, ' + fail + ' failed\n');
   await browser.close();

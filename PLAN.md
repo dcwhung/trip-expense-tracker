@@ -1,201 +1,207 @@
-# Italy Trip Expense Tracker — 可行性研究 + 實施計劃
+# Trip Spend — 規格與實施計劃
 
-> 狀態：規劃確認中
-> 目標平台：iPhone (iOS Safari, PWA — 加去主畫面)
-> Deadline：出發前（一星期內）
+> 狀態：**規劃完成，等待開工確認**
+> 平台：iPhone PWA（Safari → 加入主畫面）
+> 網址：https://dcwhung.github.io/trip-expense-tracker/
+> 本文件經 4 輪 grilling 定案，取代之前所有假設。
 
 ---
 
-## 1. 可行性結論
+## 0. 決定紀錄摘要
 
-**可行，屬細型 project。** 唔需要 App Store、唔需要 Apple Developer 帳號（$99/年）、唔需要後端伺服器、成本 HK$0。
-
-做法係一個 **PWA（Progressive Web App）**：一個靜態網頁 app，用 Safari 開一次，撳「加入主畫面」，之後就有 icon、全螢幕、冇網址列，用落同 native app 冇分別。
-
-| 需求 | 可行 | 實現方式 |
+| # | 決定 | 註 |
 |---|---|---|
-| iPhone 上似 app | ✅ | `manifest.json` + Add to Home Screen（standalone display mode）|
-| 意大利冇網絡都用到 | ✅ | Service Worker 全部 cache，執行時零網絡請求 |
-| 逐日記支出 | ✅ | `localStorage` 存 JSON |
-| Category + description + remarks | ✅ | 純表單 |
-| 旅行完 export | ✅ | Web Share API（叫出 iOS share sheet）+ download fallback |
-| Host | ✅ | GitHub Pages（免費、自帶 HTTPS，PWA 必須 HTTPS）|
+| 1 | 意大利 **2026-08-22 → 08-28**（7 日），日期硬編碼 | |
+| 2 | 記錄用，**唔做 AA 結算** | `Account` 只係標籤 |
+| 3 | 貨幣 **EUR 硬編碼**，唔換算 | 資料仍存 `currency` 欄位 |
+| 4 | Export：**CSV + JSON + 純文字摘要** | |
+| 5 | Host：**public repo + GitHub Pages**（已開啟）| 旅行後再試 Cloudflare Pages |
+| 6 | 純 vanilla HTML/CSS/JS，**零 build step、零 dependency** | |
+| 7 | 儲存：`localStorage`，金額用**整數分位** | |
+| 8 | 日期跟**裝置本地時間** | 之後喺日本／香港用都啱 |
+| 9 | 出發前已付嘅機票酒店 **唔入** app | |
+| 10 | 換匯／增值（`Bank`）**唔入** app | 避免雙重計算 |
+| 11 | **19/8 code freeze**，只修 showstopper | 見 §7 |
 
 ---
 
-## 2. 已確認嘅範圍決定
+## 1. 資料模型
 
-| 項目 | 決定 |
-|---|---|
-| 使用者 | **淨係自己一個**，唔做分帳 |
-| 貨幣 | **淨係歐元 (EUR)，唔做匯率換算** |
-| Export 格式 | **CSV（UTF-8 BOM）+ JSON 完整備份 + 純文字每日摘要**，三樣都要 |
-| 時間 | 一星期內出發 |
-
-### 明確 Non-goals（今次唔做）
-- ❌ AA 分帳 / 多人結算
-- ❌ 匯率換算、多幣種
-- ❌ 收據影相（會食爆 storage，令 export 複雜化）
-- ❌ 雲端同步 / 帳號登入 / 多裝置
-- ❌ 預算上限提示
-- ❌ PDF 報表
-
-呢啲全部係「旅行後想繼續用先加」嘅嘢，唔好喺出發前趕。
-
----
-
-## 3. 最大風險同對策
-
-### 🔴 R1 — 資料流失（唯一真正嚴重嘅風險）
-資料 100% 存喺你部電話本機，冇雲端備份。
-
-- iOS 有 ITP，7 日冇用會清網站資料。**但加咗上主畫面嘅 PWA 係豁免嘅**，你日日用，正常情況安全。
-- 真正殺手：手殘 delete 咗個主畫面 icon、或者 Safari「清除網站數據」→ 全部支出消失，無得 recover。
-
-**對策（必做，非 nice-to-have）：**
-1. 上次 export 超過 24 小時 → 首頁頂出橫額提醒備份。
-2. 「一撳複製全部 JSON」按鈕 → 貼落 Apple Notes / send 俾自己 email 就係一個備份。
-3. 支援 JSON import 還原。
-
-### 🟠 R2 — iOS standalone 模式嘅 download 行為
-PWA 全螢幕模式下 `<a download>` 歷史上會失敗或者亂開新視窗。**唔可以淨靠佢。**
-
-**對策：三層 fallback**
-1. `navigator.share({ files: [...] })` — iOS 15+ 支援，叫出 share sheet，可以存去 Files、email、WhatsApp。**主力方案。**
-2. `<a download>` + Blob URL。
-3. 全文顯示喺 `<textarea>` 俾你 select-all copy。永遠唔會 fail。
-
-### 🟠 R3 — 入一筆太慢就會放棄用
-記帳 app 死因九成係「入一筆要 30 秒」。
-
-**對策：目標「入一筆 ≤ 8 秒、≤ 3 下撳」**
-- 開 app 直接就係入數畫面，金額欄自動 focus 彈數字鍵盤
-- Category 係大 icon grid，一撳即中（唔用下拉選單）
-- description / remarks **兩個都 optional**，唔填照樣可以儲存
-
-### 🟡 R4 — 日期界線
-意大利同香港差 6–7 個鐘。凌晨食完宵夜嗰筆算邊日？
-
-**對策：** 用裝置本地時間（即意大利時間）嘅日曆日。日期欄預設今日但**可以改**，方便第二朝先補入琴晚嗰餐。
-
-### 🟡 R5 — 出發前先發現 app 壞咗
-**對策：** 出發前 48 小時做完整 device test（見第 7 節 checklist），之後 code freeze，唔好再改。
-
----
-
-## 4. 技術方案
-
-**刻意選擇：零 build step、零 dependency、純 vanilla HTML/CSS/JS。**
-
-理由：一星期 deadline 下，多一層 build（Vite / React / npm）就多一層可以喺出發前一晚爆嘅嘢。呢個 app 嘅複雜度完全唔需要框架。
-
-```
-/
-├─ index.html        # 全部 UI（三個 view，用 CSS 切換）
-├─ app.js            # 資料層 + UI 邏輯 + export
-├─ styles.css        # 手機優先，safe-area-inset，深色模式
-├─ sw.js             # Service Worker，cache-first
-├─ manifest.json     # PWA manifest，display: standalone
-└─ icons/            # 180×180 apple-touch-icon, 192/512 PNG
-```
-
-- **儲存**：`localStorage`（5MB，足夠幾千筆純文字紀錄）。唔用 IndexedDB，因為冇影相就冇必要複雜化。
-- **金額**：內部用**整數「仙」(cents)** 儲存，避免浮點數 `0.1 + 0.2` 問題。顯示時先除 100。
-- **Host**：GitHub Pages。
-
-### 資料模型
 ```js
 {
   id: "uuid",
-  date: "2026-08-25",      // 本地日曆日 YYYY-MM-DD
-  amountCents: 1450,       // 整數，EUR
-  category: "food",
-  description: "",         // optional
-  remarks: "",             // optional
+  schemaVersion: 1,
+  tripId: "italy-2026-08",
+  date: "2026-08-23",        // 裝置本地日曆日
+  amountMinor: 1450,          // 整數（歐仙），避免浮點誤差
+  currency: "EUR",            // 今次固定，將來多幣種靠佢
+  account: "Donald",          // Donald | Kwan（sticky）
+  payment: "Global Money",    // Global Money | Cash | Credit Card（sticky）
+  category: "Food",
+  description: "",            // optional — 現金交易即場打；刷卡可留空，事後由月結單補
+  remarks: "",                // optional
   createdAt: "ISO8601",
   updatedAt: "ISO8601"
 }
 ```
 
-### 預設 Category（可改，講聲就得）
-🍝 食 · 🏨 住 · 🚆 交通 · 🎟️ 景點門票 · 🛍️ 購物 · 💶 其他
+`schemaVersion` 同 `tripId` 今次用唔著，但將來做多 trip 版本靠佢哋 migrate 舊資料。而家加係免費，事後補係地獄。
+
+### Category（六個，次序如下，3×2 grid）
+`Transportation` · `Food` · `Household` · `Entertainment` · `Shopping` · `Kids`
+
+**冇 `Other`、冇 `Accommodation`、冇 `Bank`** —— 已知並接受（見 §8）。
+
+### Account（sticky toggle，預設 Donald）
+`Donald` · `Kwan`
+
+### Payment（sticky toggle，預設 Global Money）
+`Global Money` · `Cash` · `Credit Card`
+
+Sticky = 記住上次揀咗邊個。連續入十筆同樣付款方式 = 零額外撳掣。
 
 ---
 
-## 5. 功能規格
+## 2. 畫面
 
 ### 畫面 1 — 入數（開 app 預設）
-- 大金額輸入（`inputmode="decimal"`，自動 focus）
-- Category icon grid（6 格，一撳選中）
-- 日期（預設今日，可改）
-- Description（optional，單行）
-- Remarks（optional，多行）
-- 儲存 → 有觸覺/視覺回饋 → 表單清空，準備入下一筆
+由上至下：
+1. **金額** — 大字，`inputmode="decimal"`，自動 focus 彈原生數字鍵盤
+2. **Category** — 3×2 icon grid，一撳選中
+3. **Account** — 兩格 toggle（sticky）
+4. **Payment** — 三格 toggle（sticky）
+5. **日期** — 預設今日，可改（方便第二朝補入琴晚嗰餐）
+6. **Description** — optional，單行
+7. **Remarks** — optional，多行
+8. **儲存** — 有回饋，表單清空，準備入下一筆
+
+目標：**入一筆 ≤ 8 秒、≤ 3 下撳**（金額 → category → 儲存）。
 
 ### 畫面 2 — 紀錄清單
-- 按日期由新到舊分組，每組有當日小計
-- 頂部：全程總計 + 已記錄日數
+- 頂部：全程總計 + 筆數 + 「第 N 日 / 共 7 日」
+- 按日期由新到舊分組，每組標題 `Day 2 · 08-23 · €203.40`
 - 撳一筆 → 編輯 / 刪除（刪除要二次確認）
 
 ### 畫面 3 — Export / 設定
-- Export CSV（UTF-8 BOM，Excel / Numbers 開唔會亂碼）
-- Export JSON（完整備份）
-- 複製純文字摘要（每日總結，可直接貼落 WhatsApp / email）
+- Export CSV · Export JSON · 複製純文字摘要
 - Import JSON（還原）
 - 顯示上次備份時間
 - 清除所有資料（要打字確認）
 
 ---
 
-## 6. 時間表（出發前一星期）
+## 3. Export 規格
 
-| 日 | 工作 | 產出 |
-|---|---|---|
-| D1 | Scaffold + 資料層 + 入數畫面 | 入到數，reload 後仲喺度 |
-| D2 | 清單畫面 + 每日小計 + 編輯/刪除 | 核心功能齊 |
-| D3 | 三種 export + import + 備份提醒 | 資料攞得出、還原得返 |
-| D4 | PWA（manifest / SW / icons）+ deploy 上 GitHub Pages | 真機加到上主畫面 |
-| D5 | **真機測試**（見第 7 節）+ 執 bug | 飛行模式下用得正常 |
-| D6 | UI 打磨、字體大細、深色模式 | 用落舒服 |
-| D7 | **Buffer / code freeze** | 唔再改嘢 |
+### CSV
+欄位（跟圖 1 風格，Payment 獨立成欄）：
+```
+Account,Date,Payment,Description,EUR,Category,Remarks
+```
+- **UTF-8 BOM** 開頭 → Excel / Numbers 開中文唔會亂碼
+- 日期 **ISO `YYYY-MM-DD`** —— 唯一唔會被 locale 誤讀又排到序嘅格式
+- Description / Remarks 空就空，方便返到嚟批量填
 
-如果時間再緊：D1–D3 已經係可用嘅 MVP，D4 係「似 app」嘅關鍵，**D5 絕對唔可以省**。
+想砌返「`Donald - Global Money`」嗰種寫法，Excel 一條 `=A2&" - "&C2` 就得。
+
+### JSON
+完整備份，含 `schemaVersion`、`tripId`、全部 entries。可 import 還原。
+
+### 純文字摘要
+```
+Trip Spend · Italy 2026-08-22 → 08-28
+總計 €1,234.56 · 87 筆
+
+Day 1 · 08-22 · €156.20
+  Food €78.50 · Transportation €45.00 · Shopping €32.70
+Day 2 · 08-23 · €203.40
+  ...
+```
+每日小計 + 當日 category 細分，唔逐筆列。
+
+### 交付方式（三層 fallback）
+1. `navigator.share({ files })` —— iOS share sheet，存去 Files / email / WhatsApp。**主力**
+2. `<a download>` + Blob URL
+3. 全文入 `<textarea>` 俾你 select-all copy —— 永遠唔會 fail
 
 ---
 
-## 7. 出發前驗收 Checklist（最重要嗰部分）
+## 4. 備份機制
 
-要喺**真部 iPhone** 上做，唔可以淨係喺電腦 Chrome 度撳兩下就當 pass。
+資料 100% 淨係喺部電話嘅 `localStorage`，冇雲端。加咗上主畫面嘅 PWA 唔受 iOS 7 日清資料規則影響，但**手殘 delete 個 icon 或者 Safari「清除網站數據」= 全部消失，無得 recover**。
 
-- [ ] Safari 開網址 → 分享 → 加入主畫面 → 有 icon、有名、全螢幕冇網址列
-- [ ] **開飛行模式**，撳主畫面 icon → app 正常開到，入到數
-- [ ] 入 10 筆數 → 強制關 app（上滑撤走）→ 重開 → 10 筆全部仲喺度
-- [ ] 部機熄機重開 → 資料仲喺度
-- [ ] 金額入 `0.01`、`1234.56`、`0` → 顯示正確，小計加得啱
-- [ ] Description 同 remarks 留空 → 儲存唔會出錯
-- [ ] 中文 + emoji 打得入、顯示正常、export 出嚟冇亂碼
-- [ ] Export CSV → share sheet 彈到出 → 存去 Files → 用 Numbers 開到，中文正常
-- [ ] Export JSON → 清除全部資料 → import 返 → 資料 100% 還原
-- [ ] 純文字摘要 copy 得到，貼落 Notes 格式正常
+對策：
+1. **本地時間 20:00 之後第一次開 app** → 清單頂出一條可撳走嘅橫額：「今日未備份 · 複製全部」。一日淨係出一次。
+2. 撳落去 = 全部 JSON 入剪貼簿 → 貼落 Apple Notes / send 俾自己。全程約 10 秒。
+3. Import JSON 還原。
+
+**唔喺入數之後彈** —— 唔可以喺你思路最順嗰刻阻你。
+
+---
+
+## 5. 技術
+
+```
+/
+├─ index.html        # 三個 view，CSS 切換
+├─ app.js            # 資料層 + UI + export
+├─ styles.css        # 手機優先、safe-area-inset、深色模式
+├─ sw.js             # Service Worker，cache-first
+├─ manifest.json     # display: standalone
+└─ icons/            # 180 / 192 / 512 —— 深綠底、白色 "TS"
+```
+
+- 名稱：**Trip Spend**
+- 部署：`main` branch `/ (root)` → GitHub Pages（已開啟）
+- 開發喺 `claude/italy-trip-expense-tracker-6gscf5`，測試 OK 先 merge 落 `main`
+  → `main` 永遠等於「部電話上面跑緊嗰個版本」
+
+---
+
+## 6. 驗收 Checklist（必須喺真部 iPhone 做）
+
+- [ ] Safari 開網址 → 分享 → 加入主畫面 → 有 icon、全螢幕、冇網址列
+- [ ] **開飛行模式** → 撳主畫面 icon → 正常開到、入到數
+- [ ] 入 10 筆 → 強制關 app（上滑撤走）→ 重開 → 10 筆全在
+- [ ] 部機熄機重開 → 資料仲在
+- [ ] 金額 `0.01` / `1234.56` / `0` → 顯示正確，小計加得啱
+- [ ] Description 同 Remarks 兩個都留空 → 儲存唔出錯
+- [ ] Account / Payment sticky 生效：入第二筆自動沿用上一筆
+- [ ] 中文 + emoji 打得入、顯示正常、export 冇亂碼
+- [ ] CSV → share sheet 彈到 → 存去 Files → Numbers 開到，中文正常，日期認得係日期
+- [ ] **JSON export → 清除全部資料 → import 返 → 100% 還原**（唔可以「睇落應該得」）
+- [ ] 純文字摘要 copy 到，貼落 Notes 格式正常
 - [ ] 刪除一筆 → 小計同總計即時更新
-- [ ] 改日期 → 該筆跳去正確嗰日嘅分組
-- [ ] 直度 / 橫度 都用得（起碼唔會爛版）
-- [ ] 深色模式睇得清
-- [ ] 連續入 20 筆，計時：平均每筆 ≤ 8 秒
+- [ ] 改日期 → 跳去正確嗰日嘅分組
+- [ ] 20:00 之後開 app → 橫額出現；撳走 → 當日唔再出
+- [ ] 直度 / 橫度 都唔爛版；深色模式睇得清
+- [ ] 連續入 20 筆計時 → 平均 ≤ 8 秒／筆
 
 ---
 
-## 8. 待確認（我已選咗預設，你唔出聲就照做）
+## 7. 時間表
 
-1. **Category 清單** — 預設六個（食/住/交通/景點/購物/其他）夠唔夠？要唔要自訂？
-2. **付款方式欄位（現金 / 信用卡）** — 加一個 toggle 成本好低，對事後對信用卡帳單好有用。**預設唔做**（範圍紀律），你話要就加。
-3. **App 名同 icon** — 預設叫「Italy 2026」，icon 用簡單文字 + 顏色。
-4. **Repo 公開定私人** — GitHub Pages 免費版要 public repo。你嘅支出資料**唔會**入 repo（只存喺電話），但條網址任何人開到（開到嘅係空白 app，唔係你嘅資料）。可接受嘅話最簡單。
+| 日期 | 內容 |
+|---|---|
+| **8/18（今日）** | 全部開發完成 + 部署上 Pages |
+| **8/19** | 你真機試用 → 我修最後一輪 → **夜晚 code freeze** |
+| **8/20 – 8/21** | **凍結。** 只修 showstopper：①入唔到數 ②資料會唔見 ③export 出唔到。其餘（樣衰、字細、動畫窒）一律唔郁 |
+| **8/22** | 出發 🇮🇹 |
+| **8/28** | 回程。Export CSV，貼落你張表 |
 
 ---
 
-## 9. Plan B（如果 app 喺羅馬中途壞咗）
+## 8. 已知並接受嘅取捨
 
-1. 先試強制關 app 再開。
-2. 唔得就用 Safari 直接開個網址（同一個 storage，資料仲喺度），即刻 export 走。
-3. 最壞情況：用 Apple Notes 逐筆打，返嚟先整理。**所以每日 export 一次備份係救命嘅。**
+1. **冇 `Other` category** —— city tax、行李寄存、廁所費、SIM 卡呢類嘢要硬塞入六格之一
+2. **冇 `Accommodation` category** —— 現場找數嘅住宿費要塞入其他格
+3. **資料淨係喺一部電話** —— 冇雲端備份，靠 §4 嘅手動流程
+4. **19/8 起硬凍結** —— 之後發現嘅非 showstopper 問題，帶住去旅行
+5. **EUR 硬編碼** —— 下次去日本／香港要改常數再 push（PWA 會自動更新，唔使重裝）
+
+---
+
+## 9. Plan B（app 喺羅馬壞咗）
+
+1. 強制關 app 再開
+2. 唔得就用 Safari 直接開網址（同一個 storage，資料仲在），即刻 export 走
+3. 最壞：Apple Notes 逐筆打，返嚟再整理

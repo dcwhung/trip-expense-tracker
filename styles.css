@@ -238,6 +238,10 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
   font: inherit; font-size: 10px; font-weight: 600;
 }
 .tab span { font-size: 19px; line-height: 1; }
+/* The one drawn icon among text glyphs — currentColor keeps it in step with
+   the selected/unselected tab colour. */
+.tab-ico { display: block; width: 19px; height: 19px; }
+.tab-ico svg { display: block; width: 100%; height: 100%; }
 .tab[aria-selected="true"] { color: var(--accent); }
 
 /* ── sheet & toast ────────────────────────── */

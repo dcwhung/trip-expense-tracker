@@ -1,5 +1,5 @@
 /* Bump CACHE on every deploy — it is what retires the old files. */
-const CACHE = 'trip-spend-v15';
+const CACHE = 'trip-spend-v16';
 
 const ASSETS = [
   './',

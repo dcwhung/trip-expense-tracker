@@ -267,6 +267,15 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     (await budget(1)).includes('-€30.00'), await budget(1));
   check('spend total still excludes the top-up',
     (await page.textContent('#sum-total')) === '-€47.30', await page.textContent('#sum-total'));
+  check('the Export footer stamps the build so a stale cache is obvious',
+    /build v\d+/.test(await page.evaluate(async () => {
+      document.querySelector('.tab[data-view="export"]').click();
+      await new Promise((r) => setTimeout(r, 150));
+      return document.querySelector('#trip-label').textContent;
+    })));
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(200);
+
   check('the Top-ups section shows a running total',
     (await page.textContent('#topup-total')) === '+€500.00', await page.textContent('#topup-total'));
   check('the summary reports budget left on the left',

@@ -4,6 +4,7 @@
    Trip dates and account names live in Settings; the currency is fixed per
    build. See PLAN.md for the decisions behind all of this. */
 
+const BUILD = 'v30';                 // keep in step with CACHE in sw.js
 const CURRENCY = { code: 'EUR', symbol: '€' };
 const SCHEMA_VERSION = 2;
 const LOW_BALANCE_MINOR = 10000;   // under €100 left shows red
@@ -1291,7 +1292,7 @@ function renderExport() {
     : 'Never backed up';
   $('#trip-label').textContent = (tripConfigured()
     ? settings.tripStart + ' → ' + settings.tripEnd
-    : 'no dates set') + ' · ' + entries.length + ' entries';
+    : 'no dates set') + ' · ' + entries.length + ' entries · build ' + BUILD;
   document.querySelectorAll('.cur-code').forEach((el) => { el.textContent = CURRENCY.code; });
   updateBanner();
 }
@@ -1454,6 +1455,16 @@ function init() {
   });
 
   if ('serviceWorker' in navigator) {
+    // A new worker claims the page as soon as it activates, but the assets
+    // already on screen came from the old cache — without this the update
+    // only shows up on the reload after next.
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      location.reload();
+    });
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     });

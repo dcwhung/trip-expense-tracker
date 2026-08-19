@@ -204,7 +204,9 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 ```
 - 部署：`main` branch `/ (root)` → GitHub Pages
 - 開發喺 `claude/italy-trip-expense-tracker-6gscf5`，測試 OK 先 merge 落 `main`
-- **改咗任何 cache 住嘅檔案，一定要 bump `sw.js` 頂嘅 `CACHE` 版本號**
+- **改咗任何 cache 住嘅檔案，一定要同時 bump `sw.js` 嘅 `CACHE` 同 `app.js` 嘅 `BUILD`**
+- Service Worker 用 stale-while-revalidate，新版係喺背景攞返嚟。所以頁面會**聽住 `controllerchange`，一發現新 worker 接管就自己 reload 一次** —— 冇呢句嘅話，用家 reload 一次仲係舊版，要 reload 第二次先見到新嘢
+- **Export 版底部有 `build vNN`** —— 懷疑撞到舊 cache 嗰陣，睇一眼就知答案，唔使估
 - 下次旅行：Settings 改日期就得；換貨幣先要改 `app.js` 嘅 `CURRENCY` 常數
 
 ---

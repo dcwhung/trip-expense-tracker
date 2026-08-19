@@ -98,10 +98,11 @@
 - 頂部：總支出 + 筆數 + `22/8 → 28/8 · 7 days · Day 3 of 7`
 - **Budget left** — 每個 account 一張卡：餘額大字，下面兩行 `Topped up: €500.00` / `Spent: €86.00`（英文字前、數字後）
   - **少過 €100 → 紅色**；**≥ €100 或者未扣過數 → 綠色**
-- **Top-ups** — 區標題右邊有**總數**（`+€500.00`）；逐筆列出，撳一下開返表單改（金額 / 日期 / account），有 Update / Delete / Cancel，同 expense 一致
+- **Top-ups** — 區標題右邊有**總數**：`+€500.00`、綠色。逐筆嘅金額**唔加正號、用一般字色**。撳一下開返表單改（金額 / 日期 / account），有 Update / Delete / Cancel，同 expense 一致
 - **Expenses** — 按日期由新到舊分組，每組 `Day N · 日期 · 小計`；撳一筆去編輯／刪除
-  - **每筆金額同每日小計都帶負號**（`-€48.00`），同 top-up 嘅 `+` 對稱；最頂綠卡嘅總支出保持正數
-  - 主行顯示 **Description 或 Remarks**，兩樣都有就用 ` | ` 分隔；副行淨低 `Category · Account · Payment`
+  - 逐筆金額**唔加負號、用一般字色**；**每日小計先加負號兼用紅色**（`-€48.00`）。最頂綠卡嘅總支出保持正數
+  - 主行顯示 **Description 或 Remarks**，兩樣都有就用 ` | ` 分隔
+  - **兩樣都冇就唔顯示任何 placeholder** —— `Category · Account · Payment` 直接升做主行
 
 ### Export
 CSV · JSON · 純文字摘要 · Import JSON · 上次備份時間 · 清除所有資料
@@ -186,8 +187,9 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 - [ ] Top up €500 → Records 見到 €500 減去已使
 - [ ] 用到剩低過 €100 → 卡變紅
 - [ ] Top-ups 區標題右邊個總數啱數
-- [ ] Expense 每筆同每日小計都有負號
-- [ ] 淨有 Description、淨有 Remarks、兩樣都有（`A | B`）三種情況都顯示得啱
+- [ ] Expense 逐筆冇符號；每日小計有負號兼紅色
+- [ ] Top-up 逐筆冇符號兼一般字色；區標題總數有加號兼綠色
+- [ ] 淨有 Description、淨有 Remarks、兩樣都有（`A | B`）、兩樣都冇（唔出 placeholder）四種情況都顯示得啱
 - [ ] Top-up 撳一下入到編輯，改金額後餘額跟住郁，唔會多咗一筆
 - [ ] 喺編輯畫面撳 Delete 刪得返 top-up
 - [ ] 改緊 expense 時 `Top Up` 格唔見；改緊 top-up 時成個 Category 區唔見

@@ -206,12 +206,18 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('the Top-ups section shows a running total',
     (await page.textContent('#topup-total')) === '+€500.00', await page.textContent('#topup-total'));
 
-  check('expense rows are shown as outflows',
-    (await page.locator('#list .row-amt').first().textContent()).startsWith('-'),
+  check('expense rows carry no sign',
+    !(await page.locator('#list .row-amt').first().textContent()).startsWith('-'),
     await page.locator('#list .row-amt').first().textContent());
-  check('day subtotals are negative too',
+  check('the day subtotal is the one that goes negative',
     (await page.locator('#list .day-total').first().textContent()).startsWith('-'),
     await page.locator('#list .day-total').first().textContent());
+  check('and it is marked as a debit',
+    (await page.locator('#list .day-total').first().getAttribute('class')).includes('is-debit'));
+  check('top-up rows carry no sign and no credit colour', await page.evaluate(() => {
+    const el = document.querySelector('#topup-list .row-amt');
+    return el && !el.textContent.startsWith('+') && !el.className.includes('is-credit');
+  }));
   check('the headline total stays positive',
     !(await page.textContent('#sum-total')).startsWith('-'));
 
@@ -469,6 +475,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await logLabelled('1.00', 'Desc only', '');
   await logLabelled('2.00', '', 'Remarks only');
   await logLabelled('3.00', 'Bar Centrale', 'two coffees');
+  await logLabelled('4.00', '', '');
 
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(250);
@@ -481,6 +488,12 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   const subs = await page.locator('#list .row-sub').allTextContents();
   check('remarks no longer duplicated on the sub line',
     !subs.some((t) => t.includes('two coffees')), JSON.stringify(subs.slice(0, 4)));
+  check('an entry with neither shows no placeholder',
+    !labels.some((t) => /No description/i.test(t)), JSON.stringify(labels));
+  // The account was renamed earlier in this run, so match the shape rather
+  // than a fixed name.
+  check('it falls back to the category line instead',
+    labels.some((t) => /^Food · \S+ · Global Money$/.test(t)), JSON.stringify(labels));
 
   check('no page errors', errors.length === 0, errors.join('; '));
   console.log('\n' + pass + ' passed, ' + fail + ' failed\n');

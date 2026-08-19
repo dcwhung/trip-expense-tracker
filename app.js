@@ -627,8 +627,8 @@ function renderTopupList() {
       main.appendChild(s);
 
       const amt = document.createElement('span');
-      amt.className = 'row-amt is-credit';
-      amt.textContent = '+' + money(t.amountMinor);
+      amt.className = 'row-amt';
+      amt.textContent = money(t.amountMinor);
 
       row.appendChild(ico);
       row.appendChild(main);
@@ -660,7 +660,7 @@ function renderExpenses() {
     const left = document.createElement('span');
     left.textContent = (dn ? 'Day ' + dn + ' · ' : '') + date;
     const right = document.createElement('span');
-    right.className = 'day-total';
+    right.className = 'day-total is-debit';
     right.textContent = money(-sum(list));
     head.appendChild(left);
     head.appendChild(right);
@@ -679,20 +679,29 @@ function renderExpenses() {
       const main = document.createElement('div');
       main.className = 'row-main';
       // Description is often blank until the bank statement arrives, so fall
-      // back to the remarks rather than showing an empty row.
+      // back to the remarks. With neither, the category line simply moves up
+      // rather than leaving a placeholder behind.
       const label = [e.description, e.remarks].filter(Boolean).join(' | ');
-      const d = document.createElement('div');
-      d.className = 'row-desc' + (label ? '' : ' empty');
-      d.textContent = label || 'No description';
-      const s = document.createElement('div');
-      s.className = 'row-sub';
-      s.textContent = [e.category, e.account, e.payment].join(' · ');
-      main.appendChild(d);
-      main.appendChild(s);
+      const meta = [e.category, e.account, e.payment].join(' · ');
+      if (label) {
+        const d = document.createElement('div');
+        d.className = 'row-desc';
+        d.textContent = label;
+        const sub = document.createElement('div');
+        sub.className = 'row-sub';
+        sub.textContent = meta;
+        main.appendChild(d);
+        main.appendChild(sub);
+      } else {
+        const only = document.createElement('div');
+        only.className = 'row-desc row-desc-meta';
+        only.textContent = meta;
+        main.appendChild(only);
+      }
 
       const amt = document.createElement('span');
       amt.className = 'row-amt';
-      amt.textContent = money(-e.amountMinor);
+      amt.textContent = money(e.amountMinor);
 
       row.appendChild(ico);
       row.appendChild(main);

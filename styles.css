@@ -287,6 +287,8 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
   font-size: 13px; font-weight: 700; color: var(--muted);
   margin: 22px 2px 8px; letter-spacing: 0.02em;
 }
+.section-head-row { display: flex; justify-content: space-between; align-items: baseline; }
+.section-total { font-size: 15px; color: var(--ok); }
 .budget-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
 .budget-card {
   background: var(--surface); border: 1px solid var(--line);
@@ -300,7 +302,9 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 .budget-left { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
 .budget-card.is-ok .budget-left { color: var(--ok); }
 .budget-card.is-low .budget-left { color: var(--danger); }
-.budget-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+.budget-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.budget-line { display: flex; justify-content: space-between; gap: 8px; }
+.budget-line + .budget-line { margin-top: 2px; }
 
 .row-amt.is-credit { color: var(--ok); }
 

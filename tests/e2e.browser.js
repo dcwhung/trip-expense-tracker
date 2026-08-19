@@ -134,8 +134,9 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   const budget = async (i) => (await page.locator('.budget-card').nth(i).textContent()).trim();
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(200);
-  check('a fresh account card reads "No top-ups yet"',
-    (await budget(0)).includes('No top-ups yet'), await budget(0));
+  check('a fresh account card shows both figures at zero',
+    (await budget(0)).includes('Topped up:') && (await budget(0)).includes('Spent:') &&
+    (await budget(0)).includes('€0.00'), await budget(0));
   check('a fresh account is green', (await page.locator('.budget-card').nth(0)
     .getAttribute('class')).includes('is-ok'));
   await page.click('.tab[data-view="add"]');
@@ -168,8 +169,9 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     await page.textContent('#sum-day'));
 
   section('budgets from top-ups');
-  check('spend with no top-up shows the deduction',
-    (await budget(0)).includes('€0.00 topped up · €17.30 spent'), await budget(0));
+  check('spend with no top-up shows label-first lines',
+    /Topped up:€0\.00/.test(await budget(0)) && /Spent:€17\.30/.test(await budget(0)),
+    await budget(0));
   check('Donald starts negative on spend alone',
     (await budget(0)).includes('-€17.30'), await budget(0));
   check('spend with no top-up is red', (await page.locator('.budget-card').nth(0)
@@ -201,6 +203,19 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     (await budget(1)).includes('-€30.00'), await budget(1));
   check('spend total still excludes the top-up',
     (await page.textContent('#sum-total')) === '€47.30', await page.textContent('#sum-total'));
+  check('the Top-ups section shows a running total',
+    (await page.textContent('#topup-total')) === '+€500.00', await page.textContent('#topup-total'));
+
+  check('expense rows are shown as outflows',
+    (await page.locator('#list .row-amt').first().textContent()).startsWith('-'),
+    await page.locator('#list .row-amt').first().textContent());
+  check('day subtotals are negative too',
+    (await page.locator('#list .day-total').first().textContent()).startsWith('-'),
+    await page.locator('#list .day-total').first().textContent());
+  check('the headline total stays positive',
+    !(await page.textContent('#sum-total')).startsWith('-'));
+
+
 
   section('low-balance colour');
   await page.click('.tab[data-view="add"]');
@@ -271,8 +286,8 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(200);
   check('Top Up comes back once the edit is cancelled',
     !(await page.locator('#cat-grid .chip[data-value="__topup"]').isHidden()));
-  check('the form is back to Add',
-    (await page.textContent('#add-title')) === 'Add', await page.textContent('#add-title'));
+  check('the form is back to Expense',
+    (await page.textContent('#add-title')) === 'Expense', await page.textContent('#add-title'));
 
   section('backup banner at 21:30');
   await page.click('.tab[data-view="list"]');
@@ -438,6 +453,34 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     (await page.textContent('#sum-meta')) === '6 entries', await page.textContent('#sum-meta'));
   await page.screenshot({ path: OUT + '/04-offline.png', fullPage: true });
   await ctx.setOffline(false);
+
+  section('row label: description, remarks, or both');
+  const logLabelled = async (amt, desc, remarks) => {
+    await page.click('.tab[data-view="add"]');
+    await page.waitForTimeout(150);
+    await page.click('#date-strip .date-chip[data-value="2026-08-26"]');
+    await page.click('#cat-grid .chip[data-value="Food"]');
+    await page.fill('#amount', amt);
+    await page.fill('#description', desc);
+    await page.fill('#remarks', remarks);
+    await page.click('#submit-btn');
+    await page.waitForTimeout(180);
+  };
+  await logLabelled('1.00', 'Desc only', '');
+  await logLabelled('2.00', '', 'Remarks only');
+  await logLabelled('3.00', 'Bar Centrale', 'two coffees');
+
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(250);
+  const labels = await page.locator('#list .row-desc').allTextContents();
+  check('description alone is shown', labels.includes('Desc only'), JSON.stringify(labels));
+  check('remarks alone stand in for a missing description',
+    labels.includes('Remarks only'), JSON.stringify(labels));
+  check('both are joined with a pipe',
+    labels.includes('Bar Centrale | two coffees'), JSON.stringify(labels));
+  const subs = await page.locator('#list .row-sub').allTextContents();
+  check('remarks no longer duplicated on the sub line',
+    !subs.some((t) => t.includes('two coffees')), JSON.stringify(subs.slice(0, 4)));
 
   check('no page errors', errors.length === 0, errors.join('; '));
   console.log('\n' + pass + ' passed, ' + fail + ' failed\n');

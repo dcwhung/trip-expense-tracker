@@ -39,16 +39,17 @@ const OUT = process.env.SHOT_DIR || '/tmp';
   await page.waitForTimeout(250);
 
   const rows = [
-    ['4.50', 'Food', 'Gelato Roma', '2026-08-22'],
-    ['48.00', 'Food', 'Trattoria da Enzo', '2026-08-23'],
-    ['1.50', 'Transportation', 'Metro', '2026-08-24'],
-    ['32.00', 'Shopping', 'Mercato', '2026-08-24'],
+    ['4.50', 'Food', 'Gelato Roma', '', '2026-08-22'],
+    ['48.00', 'Food', 'Trattoria da Enzo', 'four of us', '2026-08-23'],
+    ['1.50', 'Transportation', 'Metro', '', '2026-08-24'],
+    ['32.00', 'Shopping', '', 'Mercato — leather bag', '2026-08-24'],
   ];
-  for (const [amt, cat, desc, date] of rows) {
+  for (const [amt, cat, desc, remarks, date] of rows) {
     await page.click(`#date-strip .date-chip[data-value="${date}"]`);
     await page.click(`#cat-grid .chip[data-value="${cat}"]`);
     await page.fill('#amount', amt);
     await page.fill('#description', desc);
+    await page.fill('#remarks', remarks);
     await page.click('#submit-btn');
     await page.waitForTimeout(120);
   }

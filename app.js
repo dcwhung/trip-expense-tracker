@@ -346,7 +346,7 @@ function resetForm() {
   $('#submit-btn').textContent = 'Save';
   $('#delete-btn').hidden = true;
   $('#cancel-btn').hidden = true;
-  $('#add-title').textContent = 'Add';
+  $('#add-title').textContent = 'Expense';
   renderAdd();
 }
 
@@ -582,9 +582,17 @@ function renderBudgets() {
 
     const sub = document.createElement('div');
     sub.className = 'budget-sub';
-    sub.textContent = st.toppedUp === 0 && st.spent === 0
-      ? 'No top-ups yet'
-      : money(st.toppedUp) + ' topped up · ' + money(st.spent) + ' spent';
+    [['Topped up', st.toppedUp], ['Spent', st.spent]].forEach((pair) => {
+      const line = document.createElement('div');
+      line.className = 'budget-line';
+      const k = document.createElement('span');
+      k.textContent = pair[0] + ':';
+      const v = document.createElement('span');
+      v.textContent = money(pair[1]);
+      line.appendChild(k);
+      line.appendChild(v);
+      sub.appendChild(line);
+    });
 
     card.appendChild(top);
     card.appendChild(sub);
@@ -594,6 +602,7 @@ function renderBudgets() {
 
 function renderTopupList() {
   $('#topup-list-wrap').hidden = topups.length === 0;
+  $('#topup-total').textContent = '+' + money(sum(topups));
   const host = $('#topup-list');
   host.innerHTML = '';
   topups.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
@@ -652,7 +661,7 @@ function renderExpenses() {
     left.textContent = (dn ? 'Day ' + dn + ' · ' : '') + date;
     const right = document.createElement('span');
     right.className = 'day-total';
-    right.textContent = money(sum(list));
+    right.textContent = money(-sum(list));
     head.appendChild(left);
     head.appendChild(right);
     host.appendChild(head);
@@ -669,20 +678,21 @@ function renderExpenses() {
 
       const main = document.createElement('div');
       main.className = 'row-main';
+      // Description is often blank until the bank statement arrives, so fall
+      // back to the remarks rather than showing an empty row.
+      const label = [e.description, e.remarks].filter(Boolean).join(' | ');
       const d = document.createElement('div');
-      d.className = 'row-desc' + (e.description ? '' : ' empty');
-      d.textContent = e.description || 'No description';
+      d.className = 'row-desc' + (label ? '' : ' empty');
+      d.textContent = label || 'No description';
       const s = document.createElement('div');
       s.className = 'row-sub';
-      const bits = [e.category, e.account, e.payment];
-      if (e.remarks) bits.push(e.remarks);
-      s.textContent = bits.join(' · ');
+      s.textContent = [e.category, e.account, e.payment].join(' · ');
       main.appendChild(d);
       main.appendChild(s);
 
       const amt = document.createElement('span');
       amt.className = 'row-amt';
-      amt.textContent = money(e.amountMinor);
+      amt.textContent = money(-e.amountMinor);
 
       row.appendChild(ico);
       row.appendChild(main);

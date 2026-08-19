@@ -26,7 +26,7 @@
 
   <!-- ───────────── Add ───────────── -->
   <section id="view-add" class="view">
-    <h1 class="screen-title" id="add-title">Add</h1>
+    <h1 class="screen-title" id="add-title">Expense</h1>
 
     <div id="add-blocked" class="notice" hidden>
       <strong>Set your trip dates first</strong>
@@ -96,7 +96,10 @@
     <div id="budget-cards" class="budget-cards"></div>
 
     <div id="topup-list-wrap" hidden>
-      <div class="section-head">Top-ups</div>
+      <div class="section-head section-head-row">
+        <span>Top-ups</span>
+        <span id="topup-total" class="section-total"></span>
+      </div>
       <div id="topup-list"></div>
     </div>
 
@@ -170,7 +173,7 @@
 </main>
 
 <nav class="tabbar">
-  <button class="tab" type="button" data-view="add"><span>＋</span>Add</button>
+  <button class="tab" type="button" data-view="add"><span>＋</span>Expense</button>
   <button class="tab" type="button" data-view="list"><span>≡</span>Records</button>
   <button class="tab" type="button" data-view="export"><span>↥</span>Export</button>
   <button class="tab" type="button" data-view="settings"><span>⚙</span>Settings</button>

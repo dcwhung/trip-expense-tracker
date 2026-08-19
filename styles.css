@@ -219,6 +219,11 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 .danger-card { border-color: var(--danger); }
 .hint { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
 .card textarea { margin-bottom: 8px; }
+/* A hint that introduces a field needs room under it, and the field needs
+   room before the button that acts on it. */
+.card .hint + input,
+.card .hint + textarea { margin-top: 10px; }
+.card input[type="text"] { margin-bottom: 8px; }
 .backup-state { font-size: 14px; margin-bottom: 12px; }
 .version { text-align: center; font-size: 12px; color: var(--muted); margin: 24px 0 0; }
 code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 4px; }

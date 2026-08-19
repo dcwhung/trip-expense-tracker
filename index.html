@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-HK">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -17,22 +17,31 @@
 <body>
 
 <div id="banner" class="banner" hidden>
-  <div class="banner-text">今日未備份 — 唔好賭</div>
-  <button id="banner-backup" class="banner-btn" type="button">複製全部</button>
-  <button id="banner-close" class="banner-x" type="button" aria-label="關閉">&times;</button>
+  <div class="banner-text">Not backed up today</div>
+  <button id="banner-backup" class="banner-btn" type="button">Copy all</button>
+  <button id="banner-close" class="banner-x" type="button" aria-label="Dismiss">&times;</button>
 </div>
 
 <main>
 
-  <!-- ───────────── 入數 ───────────── -->
+  <!-- ───────────── Add ───────────── -->
   <section id="view-add" class="view">
-    <h1 class="screen-title">入數</h1>
+    <div class="title-row">
+      <h1 class="screen-title" id="add-title">Add</h1>
+      <button id="topup-open" class="pill" type="button">＋ Top up</button>
+    </div>
+
+    <div id="add-blocked" class="notice" hidden>
+      <strong>Set your trip dates first</strong>
+      <p>Trip Spend needs a start and end date before you can log anything.</p>
+      <button class="btn btn-primary block" type="button" data-goto="settings">Open Settings</button>
+    </div>
 
     <form id="entry-form" novalidate>
-      <label class="field">
-        <span class="label">日期</span>
-        <input id="date" type="date">
-      </label>
+      <div class="field">
+        <span class="label">Date <em id="day-badge"></em></span>
+        <div id="date-strip" class="date-strip"></div>
+      </div>
 
       <div class="field">
         <span class="label">Category</span>
@@ -40,7 +49,7 @@
       </div>
 
       <label class="field amount-field">
-        <span class="label">金額</span>
+        <span class="label">Amount</span>
         <div class="amount-row">
           <span class="cur" id="cur-symbol">€</span>
           <input id="amount" type="text" inputmode="decimal" autocomplete="off"
@@ -59,85 +68,163 @@
       </div>
 
       <label class="field">
-        <span class="label">Description <em>可留空</em></span>
-        <input id="description" type="text" autocomplete="off" placeholder="商戶名（刷卡可留空，事後由月結單補）">
+        <span class="label">Description <em>optional</em></span>
+        <input id="description" type="text" autocomplete="off"
+               placeholder="Merchant — leave blank for card, fill from statement later">
       </label>
 
       <label class="field">
-        <span class="label">Remarks <em>可留空</em></span>
-        <textarea id="remarks" rows="2" placeholder="備註"></textarea>
+        <span class="label">Remarks <em>optional</em></span>
+        <textarea id="remarks" rows="2" placeholder="Notes"></textarea>
       </label>
 
       <div class="actions">
-        <button id="submit-btn" class="btn btn-primary" type="submit">儲存</button>
-        <button id="delete-btn" class="btn btn-danger" type="button" hidden>刪除</button>
-        <button id="cancel-btn" class="btn btn-ghost" type="button" hidden>取消</button>
+        <button id="submit-btn" class="btn btn-primary" type="submit">Save</button>
+        <button id="delete-btn" class="btn btn-danger" type="button" hidden>Delete</button>
+        <button id="cancel-btn" class="btn btn-ghost" type="button" hidden>Cancel</button>
       </div>
     </form>
   </section>
 
-  <!-- ───────────── 紀錄 ───────────── -->
+  <!-- ───────────── Records ───────────── -->
   <section id="view-list" class="view" hidden>
-    <h1 class="screen-title">紀錄</h1>
+    <h1 class="screen-title">Records</h1>
     <div class="summary">
       <div class="summary-total" id="sum-total">€0.00</div>
-      <div class="summary-meta" id="sum-meta">0 筆</div>
+      <div class="summary-meta" id="sum-meta">0 entries</div>
       <div class="summary-day" id="sum-day"></div>
     </div>
+
+    <div class="section-head">Budget left</div>
+    <div id="budget-cards" class="budget-cards"></div>
+
+    <div id="topup-list-wrap" hidden>
+      <div class="section-head">Top-ups</div>
+      <div id="topup-list"></div>
+    </div>
+
+    <div class="section-head">Expenses</div>
     <div id="list"></div>
   </section>
 
-  <!-- ───────────── 匯出 ───────────── -->
+  <!-- ───────────── Export ───────────── -->
   <section id="view-export" class="view" hidden>
-    <h1 class="screen-title">匯出</h1>
+    <h1 class="screen-title">Export</h1>
 
     <div class="card">
-      <div class="card-title">匯出</div>
-      <button class="btn btn-primary block" type="button" data-export="csv">CSV（Excel / Numbers）</button>
-      <button class="btn block" type="button" data-export="json">JSON 完整備份</button>
-      <button class="btn block" type="button" data-export="text">複製純文字摘要</button>
-      <p class="hint">CSV 欄位：Account, Date, Payment, Description, <span class="cur-code">EUR</span>, Category, Remarks — UTF-8 BOM，日期 ISO。</p>
+      <div class="card-title">Export</div>
+      <button class="btn btn-primary block" type="button" data-export="csv">CSV (Excel / Numbers)</button>
+      <button class="btn block" type="button" data-export="json">JSON full backup</button>
+      <button class="btn block" type="button" data-export="text">Copy text summary</button>
+      <p class="hint">CSV columns: Account, Date, Payment, Description, <span class="cur-code">EUR</span>, Category, Remarks — UTF-8 BOM, ISO dates. Top-ups are not expenses and are not included.</p>
     </div>
 
     <div class="card">
-      <div class="card-title">備份</div>
-      <div class="backup-state" id="backup-state">未備份過</div>
-      <button class="btn btn-primary block" type="button" id="backup-now">複製全部 JSON 落剪貼簿</button>
-      <p class="hint">貼落 Apple Notes 或者 send 俾自己。資料淨係喺呢部電話。</p>
+      <div class="card-title">Backup</div>
+      <div class="backup-state" id="backup-state">Never backed up</div>
+      <button class="btn btn-primary block" type="button" id="backup-now">Copy all JSON to clipboard</button>
+      <p class="hint">Paste it into Apple Notes or mail it to yourself. This data lives only on this phone.</p>
     </div>
 
     <div class="card">
-      <div class="card-title">還原</div>
-      <textarea id="import-box" rows="3" placeholder="貼返之前備份嘅 JSON 落嚟"></textarea>
-      <button class="btn block" type="button" id="import-btn">Import JSON（覆蓋全部）</button>
+      <div class="card-title">Restore</div>
+      <textarea id="import-box" rows="3" placeholder="Paste a JSON backup here"></textarea>
+      <button class="btn block" type="button" id="import-btn">Import JSON (replaces everything)</button>
     </div>
 
     <div class="card danger-card">
-      <div class="card-title">危險區</div>
-      <p class="hint">打 <code>DELETE</code> 落去先按到。無得 undo。</p>
+      <div class="card-title">Danger zone</div>
+      <p class="hint">Type <code>DELETE</code> to enable. No undo.</p>
       <input id="wipe-confirm" type="text" autocomplete="off" autocapitalize="characters" placeholder="DELETE">
-      <button class="btn btn-danger block" type="button" id="wipe-btn" disabled>清除所有資料</button>
+      <button class="btn btn-danger block" type="button" id="wipe-btn" disabled>Erase all data</button>
     </div>
 
     <p class="version">Trip Spend · <span id="trip-label"></span></p>
   </section>
 
+  <!-- ───────────── Settings ───────────── -->
+  <section id="view-settings" class="view" hidden>
+    <h1 class="screen-title">Settings</h1>
+
+    <div class="card">
+      <div class="card-title">Trip dates</div>
+      <label class="field">
+        <span class="label">Start</span>
+        <input id="set-start" type="date">
+      </label>
+      <label class="field">
+        <span class="label">End</span>
+        <input id="set-end" type="date">
+      </label>
+      <div id="range-state" class="range-state">Not set</div>
+      <button class="btn btn-primary block" type="button" id="save-range">Save trip dates</button>
+      <p class="hint" id="range-warning" hidden></p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Accounts</div>
+      <label class="field">
+        <span class="label">Account 1</span>
+        <input id="set-acct-0" type="text" autocomplete="off" maxlength="24">
+      </label>
+      <label class="field">
+        <span class="label">Account 2</span>
+        <input id="set-acct-1" type="text" autocomplete="off" maxlength="24">
+      </label>
+      <button class="btn btn-primary block" type="button" id="save-accounts">Save accounts</button>
+      <p class="hint">Renaming an account updates every existing entry and top-up. Budgets come from top-ups on the Add screen, not from here.</p>
+    </div>
+  </section>
+
 </main>
 
 <nav class="tabbar">
-  <button class="tab" type="button" data-view="add"><span>＋</span>入數</button>
-  <button class="tab" type="button" data-view="list"><span>≡</span>紀錄</button>
-  <button class="tab" type="button" data-view="export"><span>↥</span>匯出</button>
+  <button class="tab" type="button" data-view="add"><span>＋</span>Add</button>
+  <button class="tab" type="button" data-view="list"><span>≡</span>Records</button>
+  <button class="tab" type="button" data-view="export"><span>↥</span>Export</button>
+  <button class="tab" type="button" data-view="settings"><span>⚙</span>Settings</button>
 </nav>
+
+<!-- Top-up modal -->
+<div id="topup-modal" class="sheet" hidden>
+  <div class="sheet-inner">
+    <div class="sheet-head">
+      <strong>Top up</strong>
+      <button id="topup-cancel" class="btn btn-ghost" type="button">Close</button>
+    </div>
+    <p class="hint">Adds to an account's budget. A top-up is not an expense — it never appears in the CSV or the spend total.</p>
+
+    <div class="field">
+      <span class="label">Account</span>
+      <div id="topup-acct" class="grid grid-2 seg"></div>
+    </div>
+
+    <label class="field amount-field">
+      <span class="label">Amount</span>
+      <div class="amount-row">
+        <span class="cur">€</span>
+        <input id="topup-amount" type="text" inputmode="decimal" autocomplete="off"
+               autocorrect="off" spellcheck="false" placeholder="0.00">
+      </div>
+    </label>
+
+    <label class="field">
+      <span class="label">Date</span>
+      <input id="topup-date" type="date">
+    </label>
+
+    <button id="topup-save" class="btn btn-primary block" type="button">Add top-up</button>
+  </div>
+</div>
 
 <div id="sheet" class="sheet" hidden>
   <div class="sheet-inner">
     <div class="sheet-head">
-      <strong id="sheet-title">全文</strong>
-      <button id="sheet-close" class="btn btn-ghost" type="button">閂</button>
+      <strong id="sheet-title">Text</strong>
+      <button id="sheet-close" class="btn btn-ghost" type="button">Close</button>
     </div>
-    <p class="hint">長按揀全部 → 複製，或者用上面個掣。</p>
-    <button id="sheet-copy" class="btn btn-primary block" type="button">複製全文</button>
+    <p class="hint">Select all and copy, or use the button.</p>
+    <button id="sheet-copy" class="btn btn-primary block" type="button">Copy all</button>
     <textarea id="sheet-text" readonly></textarea>
   </div>
 </div>

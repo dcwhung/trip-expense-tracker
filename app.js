@@ -1,36 +1,32 @@
 'use strict';
 
-/* ─────────────────────────────────────────────────────────
-   Trip configuration.
-   Next trip: change these constants, push, done — the PWA
-   picks up the new version on its own. See PLAN.md §8.5.
-   ───────────────────────────────────────────────────────── */
-const TRIP = {
-  id: 'italy-2026-08',
-  name: 'Italy',
-  start: '2026-08-22',
-  end: '2026-08-28',
-  currency: 'EUR',
-  symbol: '€',
-};
-const SCHEMA_VERSION = 1;
+/* Trip Spend — offline expense tracker.
+   Trip dates and account names live in Settings; the currency is fixed per
+   build. See PLAN.md for the decisions behind all of this. */
+
+const CURRENCY = { code: 'EUR', symbol: '€' };
+const SCHEMA_VERSION = 2;
+const LOW_BALANCE_MINOR = 10000;   // under €100 left shows red
+const MAX_TRIP_DAYS = 120;
 
 const CATEGORIES = [
-  { key: 'Transportation', ico: '🚆', zh: '交通' },
-  { key: 'Food',           ico: '🍝', zh: '飲食' },
-  { key: 'Household',      ico: '🏠', zh: '家用' },
-  { key: 'Entertainment',  ico: '🎫', zh: '娛樂' },
-  { key: 'Shopping',       ico: '🛍', zh: '購物' },
-  { key: 'Kids',           ico: '🧸', zh: '小朋友' },
+  { key: 'Transportation', ico: '🚆' },
+  { key: 'Food',           ico: '🍝' },
+  { key: 'Household',      ico: '🏠' },
+  { key: 'Entertainment',  ico: '🎫' },
+  { key: 'Shopping',       ico: '🛍' },
+  { key: 'Kids',           ico: '🧸' },
 ];
-const ACCOUNTS = ['Donald', 'Kwan'];
 const PAYMENTS = ['Global Money', 'Cash', 'Credit Card'];
+const DEFAULT_ACCOUNTS = ['Donald', 'Kwan'];
 
 const K = {
-  entries: 'tripspend.entries.v1',
-  sticky:  'tripspend.sticky.v1',
-  backup:  'tripspend.lastBackup.v1',
-  banner:  'tripspend.bannerDismissed.v1',
+  entries:  'tripspend.entries.v1',
+  topups:   'tripspend.topups.v1',
+  settings: 'tripspend.settings.v1',
+  sticky:   'tripspend.sticky.v1',
+  backup:   'tripspend.lastBackup.v1',
+  banner:   'tripspend.bannerDismissed.v1',
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -51,7 +47,7 @@ function writeKey(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
     return true;
   } catch (e) {
-    toast('儲存唔到 — 儲存空間滿咗？即刻 export 備份！');
+    toast('Could not save — storage full? Export a backup now.');
     return false;
   }
 }
@@ -59,14 +55,31 @@ function writeKey(key, value) {
 let entries = readKey(K.entries, []);
 if (!Array.isArray(entries)) entries = [];
 
+let topups = readKey(K.topups, []);
+if (!Array.isArray(topups)) topups = [];
+
+let settings = normaliseSettings(readKey(K.settings, null));
+
 let sticky = readKey(K.sticky, {});
 if (!sticky || typeof sticky !== 'object') sticky = {};
-if (ACCOUNTS.indexOf(sticky.account) < 0) sticky.account = ACCOUNTS[0];
-if (PAYMENTS.indexOf(sticky.payment) < 0) sticky.payment = PAYMENTS[0];
 
+let selectedDate = null;
 let editingId = null;
 
 const saveEntries = () => writeKey(K.entries, entries);
+const saveTopups = () => writeKey(K.topups, topups);
+const saveSettings = () => writeKey(K.settings, settings);
+
+function normaliseSettings(raw) {
+  const s = (raw && typeof raw === 'object') ? raw : {};
+  const accounts = Array.isArray(s.accounts) ? s.accounts.slice(0, 2) : [];
+  while (accounts.length < 2) accounts.push(DEFAULT_ACCOUNTS[accounts.length]);
+  return {
+    tripStart: typeof s.tripStart === 'string' ? s.tripStart : '',
+    tripEnd: typeof s.tripEnd === 'string' ? s.tripEnd : '',
+    accounts: accounts.map((a, i) => String(a || DEFAULT_ACCOUNTS[i]).trim() || DEFAULT_ACCOUNTS[i]),
+  };
+}
 
 function uid() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -83,18 +96,48 @@ function localDate(d) {
 }
 
 const asUTC = (iso) => Date.parse(iso + 'T00:00:00Z');
-const TRIP_DAYS = Math.round((asUTC(TRIP.end) - asUTC(TRIP.start)) / 86400000) + 1;
+const daysBetween = (a, b) => Math.round((asUTC(b) - asUTC(a)) / 86400000);
+
+// Why a range can't be used, or '' when it is fine.
+function rangeError(start, end) {
+  if (!start || !end) return 'Pick both a start and an end date.';
+  if (isNaN(asUTC(start)) || isNaN(asUTC(end))) return 'Those dates are not valid.';
+  if (asUTC(end) < asUTC(start)) return 'The end date is before the start date.';
+  const span = daysBetween(start, end) + 1;
+  if (span > MAX_TRIP_DAYS) return 'That is ' + span + ' days — longer than this app is meant for.';
+  return '';
+}
+
+const tripConfigured = () => !rangeError(settings.tripStart, settings.tripEnd);
+const tripLength = () => (tripConfigured() ? daysBetween(settings.tripStart, settings.tripEnd) + 1 : 0);
+
+function tripDates() {
+  if (!tripConfigured()) return [];
+  const out = [];
+  for (let i = 0; i < tripLength(); i++) {
+    const d = new Date(asUTC(settings.tripStart) + i * 86400000);
+    out.push(d.getUTCFullYear() + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate()));
+  }
+  return out;
+}
 
 // 1-based day index inside the trip, or null when the date falls outside it.
 function dayNumber(iso) {
+  if (!tripConfigured() || !iso) return null;
   const t = asUTC(iso);
-  if (isNaN(t) || t < asUTC(TRIP.start) || t > asUTC(TRIP.end)) return null;
-  return Math.round((t - asUTC(TRIP.start)) / 86400000) + 1;
+  if (isNaN(t) || t < asUTC(settings.tripStart) || t > asUTC(settings.tripEnd)) return null;
+  return daysBetween(settings.tripStart, iso) + 1;
+}
+
+// "2026-08-24" → "24/8", matching how the trip is written down day to day.
+function shortDate(iso) {
+  const p = String(iso).split('-');
+  return p.length === 3 ? Number(p[2]) + '/' + Number(p[1]) : iso;
 }
 
 /* ── money ──────────────────────────────────────────────── */
 
-// Splits an amount string into its integer and fraction digits.
+// Splits an amount string into integer and fraction digits.
 // Rule: the LAST separator is the decimal point, anything before it is
 // thousands grouping, and at most two fraction digits count. Guessing that
 // "12.345" meant thousands is what once turned €12.34 into €12,345.00.
@@ -109,16 +152,13 @@ function splitAmount(raw) {
   };
 }
 
-// What the amount field is allowed to contain — applied on every keystroke so
+// What an amount field is allowed to contain — applied on every keystroke so
 // a third decimal digit simply never appears.
 function normaliseAmountInput(raw) {
   const p = splitAmount(raw);
   return p.sep ? p.int + p.sep + p.frac : p.int;
 }
 
-// Returns integer minor units, or null when the text is not a usable amount.
-// Accepts "12.50" and "12,50" alike — iOS shows whichever decimal separator
-// the phone's locale uses.
 function parseAmount(raw) {
   if (raw == null) return null;
   const p = splitAmount(raw);
@@ -128,29 +168,38 @@ function parseAmount(raw) {
 }
 
 const plain = (m) => (m / 100).toFixed(2);
-const money = (m) => TRIP.symbol + (m / 100).toLocaleString('en-GB', {
-  minimumFractionDigits: 2, maximumFractionDigits: 2,
-});
+const money = (m) => (m < 0 ? '-' : '') + CURRENCY.symbol +
+  (Math.abs(m) / 100).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const sum = (list) => list.reduce((t, e) => t + e.amountMinor, 0);
+const catOf = (key) => CATEGORIES.find((c) => c.key === key);
 
 const sortedAsc = () => entries.slice().sort((a, b) =>
   a.date === b.date ? String(a.createdAt).localeCompare(String(b.createdAt))
                     : a.date.localeCompare(b.date));
 
-function groupByDate(list) {
-  const map = new Map();
-  list.forEach((e) => {
-    if (!map.has(e.date)) map.set(e.date, []);
-    map.get(e.date).push(e);
-  });
-  return map;
+function datesOf(list) {
+  const seen = [];
+  list.forEach((e) => { if (seen.indexOf(e.date) < 0) seen.push(e.date); });
+  return seen;
 }
 
-const sum = (list) => list.reduce((t, e) => t + e.amountMinor, 0);
-const catOf = (key) => CATEGORIES.find((c) => c.key === key);
+/* ── budgets ────────────────────────────────────────────── */
+
+function accountStats(name) {
+  const toppedUp = sum(topups.filter((t) => t.account === name));
+  const spent = sum(entries.filter((e) => e.account === name));
+  return { toppedUp: toppedUp, spent: spent, left: toppedUp - spent, hasSpend: spent > 0 };
+}
+
+// Green until money has actually been deducted and the balance drops
+// under €100; red from there.
+const balanceIsLow = (st) => st.hasSpend && st.left < LOW_BALANCE_MINOR;
 
 /* ── chip groups ────────────────────────────────────────── */
 
 function buildChips(host, items, opts) {
+  opts = opts || {};
   host.innerHTML = '';
   items.forEach((item) => {
     const b = document.createElement('button');
@@ -158,20 +207,24 @@ function buildChips(host, items, opts) {
     b.className = 'chip';
     b.dataset.value = item.key;
     b.setAttribute('aria-pressed', 'false');
-    if (opts.icons) {
-      b.innerHTML = '<span class="ico"></span><span class="zh"></span><span class="en"></span>';
-      b.querySelector('.ico').textContent = item.ico;
-      b.querySelector('.zh').textContent = item.zh;
-      b.querySelector('.en').textContent = item.key;
+    if (item.ico) {
+      const i = document.createElement('span');
+      i.className = 'ico';
+      i.textContent = item.ico;
+      const n = document.createElement('span');
+      n.textContent = item.key;
+      b.appendChild(i);
+      b.appendChild(n);
     } else {
       b.textContent = item.key;
     }
     b.addEventListener('click', () => {
       setChip(host, item.key);
       // iOS gives the decimal keypad no "done" key, so dismiss it whenever
-      // the user leaves the amount to touch a chip.
-      const amt = $('#amount');
-      if (document.activeElement === amt) amt.blur();
+      // the user leaves an amount to touch a chip.
+      if (document.activeElement && document.activeElement.inputMode === 'decimal') {
+        document.activeElement.blur();
+      }
       if (opts.onPick) opts.onPick(item.key);
     });
     host.appendChild(b);
@@ -191,33 +244,87 @@ const getChip = (host) => {
 
 /* ── views ──────────────────────────────────────────────── */
 
-const VIEWS = ['add', 'list', 'export'];
+const VIEWS = ['add', 'list', 'export', 'settings'];
 
 function switchView(name) {
   VIEWS.forEach((v) => { $('#view-' + v).hidden = (v !== name); });
   document.querySelectorAll('.tab').forEach((t) => {
     t.setAttribute('aria-selected', String(t.dataset.view === name));
   });
+  if (name === 'add') {
+    renderAdd();
+    if (!tripConfigured()) alert('Set your trip dates in Settings first.');
+  }
   if (name === 'list') renderList();
   if (name === 'export') renderExport();
+  if (name === 'settings') renderSettings();
   window.scrollTo(0, 0);
 }
 
-/* ── add / edit form ────────────────────────────────────── */
+/* ── add / edit ─────────────────────────────────────────── */
+
+function renderAdd() {
+  const ok = tripConfigured();
+  $('#add-blocked').hidden = ok;
+  $('#entry-form').hidden = !ok;
+  $('#topup-open').hidden = !ok;
+  if (ok) renderDateStrip();
+}
+
+function renderDateStrip() {
+  const host = $('#date-strip');
+  host.innerHTML = '';
+  tripDates().forEach((iso) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'date-chip';
+    b.dataset.value = iso;
+    b.textContent = shortDate(iso);
+    b.setAttribute('aria-pressed', String(iso === selectedDate));
+    b.addEventListener('click', () => selectDate(iso));
+    host.appendChild(b);
+  });
+  updateDayBadge();
+  scrollSelectedIntoView();
+}
+
+function selectDate(iso) {
+  selectedDate = iso;
+  $('#date-strip').querySelectorAll('.date-chip').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.value === iso));
+  });
+  updateDayBadge();
+}
+
+function updateDayBadge() {
+  const n = dayNumber(selectedDate);
+  $('#day-badge').textContent = n ? 'Day ' + n : '';
+}
+
+function scrollSelectedIntoView() {
+  const el = $('#date-strip').querySelector('.date-chip[aria-pressed="true"]');
+  if (el && el.scrollIntoView) {
+    el.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
+}
 
 function resetForm() {
   editingId = null;
   $('#amount').value = '';
   $('#description').value = '';
   $('#remarks').value = '';
-  $('#date').value = localDate();
+  // Default to today when the trip is running; otherwise leave it unpicked
+  // so no Day badge is shown and the choice stays deliberate.
+  const today = localDate();
+  selectedDate = dayNumber(today) ? today : null;
   setChip($('#cat-grid'), null);
   setChip($('#acct-grid'), sticky.account);
   setChip($('#pay-grid'), sticky.payment);
-  $('#submit-btn').textContent = '儲存';
+  $('#submit-btn').textContent = 'Save';
   $('#delete-btn').hidden = true;
   $('#cancel-btn').hidden = true;
-  $('.screen-title').textContent = '入數';
+  $('#add-title').textContent = 'Add';
+  renderAdd();
 }
 
 function openEdit(id) {
@@ -227,29 +334,31 @@ function openEdit(id) {
   $('#amount').value = plain(e.amountMinor);
   $('#description').value = e.description || '';
   $('#remarks').value = e.remarks || '';
-  $('#date').value = e.date;
+  selectedDate = e.date;
   setChip($('#cat-grid'), e.category);
   setChip($('#acct-grid'), e.account);
   setChip($('#pay-grid'), e.payment);
-  $('#submit-btn').textContent = '更新';
+  $('#submit-btn').textContent = 'Update';
   $('#delete-btn').hidden = false;
   $('#cancel-btn').hidden = false;
-  $('#view-add').querySelector('.screen-title').textContent = '編輯';
+  $('#add-title').textContent = 'Edit';
   switchView('add');
 }
 
 function onSubmit(ev) {
   ev.preventDefault();
+  if (!tripConfigured()) { alert('Set your trip dates in Settings first.'); return; }
+
+  if (!selectedDate) { toast('Pick a date'); return; }
 
   const amountMinor = parseAmount($('#amount').value);
-  if (amountMinor == null) { toast('金額入得唔啱'); $('#amount').focus(); return; }
+  if (amountMinor == null) { toast('That amount is not valid'); $('#amount').focus(); return; }
 
   const category = getChip($('#cat-grid'));
-  if (!category) { toast('揀返個 category'); return; }
+  if (!category) { toast('Pick a category'); return; }
 
-  const date = $('#date').value || localDate();
-  const account = getChip($('#acct-grid')) || sticky.account;
-  const payment = getChip($('#pay-grid')) || sticky.payment;
+  const account = getChip($('#acct-grid')) || settings.accounts[0];
+  const payment = getChip($('#pay-grid')) || PAYMENTS[0];
   const description = $('#description').value.trim();
   const remarks = $('#remarks').value.trim();
   const now = new Date().toISOString();
@@ -257,23 +366,23 @@ function onSubmit(ev) {
   if (editingId) {
     const e = entries.find((x) => x.id === editingId);
     if (e) {
-      Object.assign(e, { amountMinor, category, date, account, payment,
-                         description, remarks, updatedAt: now });
+      Object.assign(e, { amountMinor: amountMinor, category: category, date: selectedDate,
+                         account: account, payment: payment, description: description,
+                         remarks: remarks, updatedAt: now });
     }
     if (!saveEntries()) return;
     resetForm();
     switchView('list');
-    toast('已更新');
+    toast('Updated');
     return;
   }
 
   entries.push({
     id: uid(),
     schemaVersion: SCHEMA_VERSION,
-    tripId: TRIP.id,
-    date: date,
+    date: selectedDate,
     amountMinor: amountMinor,
-    currency: TRIP.currency,
+    currency: CURRENCY.code,
     account: account,
     payment: payment,
     category: category,
@@ -287,53 +396,172 @@ function onSubmit(ev) {
   sticky = { account: account, payment: payment };
   writeKey(K.sticky, sticky);
 
+  const keepDate = selectedDate;
   resetForm();
+  selectDate(keepDate);          // stay on the day you are logging
+  scrollSelectedIntoView();
   updateBanner();
-  toast('入咗 ' + money(amountMinor));
+  toast('Added ' + money(amountMinor));
   if (navigator.vibrate) navigator.vibrate(12);
-  $('#amount').focus();
 }
 
 function onDelete() {
   if (!editingId) return;
-  if (!confirm('刪除呢筆？無得 undo。')) return;
+  if (!confirm('Delete this entry? No undo.')) return;
   entries = entries.filter((x) => x.id !== editingId);
   saveEntries();
   resetForm();
   switchView('list');
-  toast('已刪除');
+  toast('Deleted');
 }
 
-/* ── list ───────────────────────────────────────────────── */
+/* ── top-ups ────────────────────────────────────────────── */
+
+function openTopup() {
+  buildChips($('#topup-acct'), settings.accounts.map((k) => ({ key: k })));
+  setChip($('#topup-acct'), sticky.account || settings.accounts[0]);
+  $('#topup-amount').value = '';
+  $('#topup-date').value = localDate();
+  $('#topup-modal').hidden = false;
+}
+
+function saveTopup() {
+  const amountMinor = parseAmount($('#topup-amount').value);
+  if (amountMinor == null || amountMinor <= 0) { toast('That amount is not valid'); return; }
+  const account = getChip($('#topup-acct')) || settings.accounts[0];
+  const date = $('#topup-date').value || localDate();
+
+  topups.push({
+    id: uid(),
+    schemaVersion: SCHEMA_VERSION,
+    date: date,
+    amountMinor: amountMinor,
+    currency: CURRENCY.code,
+    account: account,
+    createdAt: new Date().toISOString(),
+  });
+  if (!saveTopups()) return;
+  $('#topup-modal').hidden = true;
+  toast('Topped up ' + account + ' ' + money(amountMinor));
+}
+
+function deleteTopup(id) {
+  const t = topups.find((x) => x.id === id);
+  if (!t) return;
+  if (!confirm('Remove the ' + money(t.amountMinor) + ' top-up for ' + t.account + '?')) return;
+  topups = topups.filter((x) => x.id !== id);
+  saveTopups();
+  renderList();
+  toast('Top-up removed');
+}
+
+/* ── records ────────────────────────────────────────────── */
 
 function renderList() {
   updateBanner();
-  const total = sum(entries);
-  $('#sum-total').textContent = money(total);
-  $('#sum-meta').textContent = entries.length + ' 筆';
+  $('#sum-total').textContent = money(sum(entries));
+  $('#sum-meta').textContent = entries.length + (entries.length === 1 ? ' entry' : ' entries');
 
-  const today = dayNumber(localDate());
-  const now = asUTC(localDate());
-  let dayText;
-  if (today) dayText = '第 ' + today + ' 日 / 共 ' + TRIP_DAYS + ' 日';
-  else if (now < asUTC(TRIP.start)) {
-    dayText = '距離出發仲有 ' + Math.round((asUTC(TRIP.start) - now) / 86400000) + ' 日';
-  } else dayText = '旅程完結';
-  $('#sum-day').textContent = TRIP.name + ' · ' + TRIP.start + ' → ' + TRIP.end + ' · ' + dayText;
+  if (!tripConfigured()) {
+    $('#sum-day').textContent = 'No trip dates set';
+  } else {
+    const today = localDate();
+    const n = dayNumber(today);
+    let where;
+    if (n) where = 'Day ' + n + ' of ' + tripLength();
+    else if (asUTC(today) < asUTC(settings.tripStart)) {
+      where = daysBetween(today, settings.tripStart) + ' days to go';
+    } else where = 'Trip finished';
+    $('#sum-day').textContent = shortDate(settings.tripStart) + ' → ' +
+      shortDate(settings.tripEnd) + ' · ' + tripLength() + ' days · ' + where;
+  }
 
+  renderBudgets();
+  renderTopupList();
+  renderExpenses();
+}
+
+function renderBudgets() {
+  const host = $('#budget-cards');
+  host.innerHTML = '';
+  settings.accounts.forEach((name) => {
+    const st = accountStats(name);
+    const card = document.createElement('div');
+    card.className = 'budget-card ' + (balanceIsLow(st) ? 'is-low' : 'is-ok');
+
+    const top = document.createElement('div');
+    top.className = 'budget-top';
+    const who = document.createElement('span');
+    who.className = 'budget-name';
+    who.textContent = name;
+    const left = document.createElement('span');
+    left.className = 'budget-left';
+    left.textContent = money(st.left);
+    top.appendChild(who);
+    top.appendChild(left);
+
+    const sub = document.createElement('div');
+    sub.className = 'budget-sub';
+    sub.textContent = st.toppedUp === 0 && st.spent === 0
+      ? 'No top-ups yet'
+      : money(st.toppedUp) + ' topped up · ' + money(st.spent) + ' spent';
+
+    card.appendChild(top);
+    card.appendChild(sub);
+    host.appendChild(card);
+  });
+}
+
+function renderTopupList() {
+  $('#topup-list-wrap').hidden = topups.length === 0;
+  const host = $('#topup-list');
+  host.innerHTML = '';
+  topups.slice().sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .forEach((t) => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'row';
+
+      const ico = document.createElement('span');
+      ico.className = 'row-ico';
+      ico.textContent = '💶';
+
+      const main = document.createElement('div');
+      main.className = 'row-main';
+      const d = document.createElement('div');
+      d.className = 'row-desc';
+      d.textContent = t.account;
+      const s = document.createElement('div');
+      s.className = 'row-sub';
+      s.textContent = 'Top-up · ' + t.date;
+      main.appendChild(d);
+      main.appendChild(s);
+
+      const amt = document.createElement('span');
+      amt.className = 'row-amt is-credit';
+      amt.textContent = '+' + money(t.amountMinor);
+
+      row.appendChild(ico);
+      row.appendChild(main);
+      row.appendChild(amt);
+      row.addEventListener('click', () => deleteTopup(t.id));
+      host.appendChild(row);
+    });
+}
+
+function renderExpenses() {
   const host = $('#list');
   host.innerHTML = '';
 
   if (!entries.length) {
     const p = document.createElement('div');
     p.className = 'empty-state';
-    p.textContent = '仲未有紀錄。撳「入數」開始。';
+    p.textContent = 'Nothing logged yet.';
     host.appendChild(p);
     return;
   }
 
-  const dates = Array.from(groupByDate(entries).keys()).sort().reverse();
-  dates.forEach((date) => {
+  datesOf(entries).sort().reverse().forEach((date) => {
     const list = entries.filter((e) => e.date === date)
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
     const dn = dayNumber(date);
@@ -363,7 +591,7 @@ function renderList() {
       main.className = 'row-main';
       const d = document.createElement('div');
       d.className = 'row-desc' + (e.description ? '' : ' empty');
-      d.textContent = e.description || '（冇 description）';
+      d.textContent = e.description || 'No description';
       const s = document.createElement('div');
       s.className = 'row-sub';
       const bits = [e.category, e.account, e.payment];
@@ -385,6 +613,83 @@ function renderList() {
   });
 }
 
+/* ── settings ───────────────────────────────────────────── */
+
+function renderSettings() {
+  $('#set-start').value = settings.tripStart;
+  $('#set-end').value = settings.tripEnd;
+  $('#set-acct-0').value = settings.accounts[0];
+  $('#set-acct-1').value = settings.accounts[1];
+  updateRangeState();
+}
+
+function updateRangeState() {
+  const start = $('#set-start').value;
+  const end = $('#set-end').value;
+  const el = $('#range-state');
+  const err = rangeError(start, end);
+  if (err) {
+    el.textContent = err;
+    el.className = 'range-state is-bad';
+  } else {
+    const n = daysBetween(start, end) + 1;
+    el.textContent = shortDate(start) + ' → ' + shortDate(end) + ' · ' + n +
+      (n === 1 ? ' day' : ' days');
+    el.className = 'range-state is-good';
+  }
+  return err;
+}
+
+function saveRange() {
+  const start = $('#set-start').value;
+  const end = $('#set-end').value;
+  const err = rangeError(start, end);
+  if (err) { toast(err); return; }
+
+  settings.tripStart = start;
+  settings.tripEnd = end;
+  if (!saveSettings()) return;
+
+  // Entries logged outside the new range stay put, but they lose their Day
+  // label — say so rather than letting it look like data went missing.
+  const orphans = entries.filter((e) => !dayNumber(e.date)).length;
+  const warn = $('#range-warning');
+  warn.hidden = orphans === 0;
+  if (orphans) {
+    warn.textContent = orphans + (orphans === 1 ? ' entry falls' : ' entries fall') +
+      ' outside this range. They are kept, but shown without a Day number.';
+  }
+
+  updateRangeState();
+  resetForm();
+  toast('Trip dates saved');
+}
+
+function saveAccounts() {
+  const next = [$('#set-acct-0').value.trim(), $('#set-acct-1').value.trim()];
+  if (!next[0] || !next[1]) { toast('Both accounts need a name'); return; }
+  if (next[0] === next[1]) { toast('The two accounts need different names'); return; }
+
+  const prev = settings.accounts.slice();
+  const rename = {};
+  prev.forEach((old, i) => { if (old !== next[i]) rename[old] = next[i]; });
+
+  if (Object.keys(rename).length) {
+    entries.forEach((e) => { if (rename[e.account]) e.account = rename[e.account]; });
+    topups.forEach((t) => { if (rename[t.account]) t.account = rename[t.account]; });
+    if (rename[sticky.account]) sticky.account = rename[sticky.account];
+    saveEntries();
+    saveTopups();
+    writeKey(K.sticky, sticky);
+  }
+
+  settings.accounts = next;
+  if (!saveSettings()) return;
+  buildChips($('#acct-grid'), settings.accounts.map((k) => ({ key: k })));
+  resetForm();
+  toast('Accounts saved');
+}
+
 /* ── exports ────────────────────────────────────────────── */
 
 function csvCell(v) {
@@ -393,12 +698,12 @@ function csvCell(v) {
 }
 
 function toCSV() {
-  const head = ['Account', 'Date', 'Payment', 'Description', TRIP.currency, 'Category', 'Remarks'];
+  const head = ['Account', 'Date', 'Payment', 'Description', CURRENCY.code, 'Category', 'Remarks'];
   const rows = sortedAsc().map((e) => [
     e.account, e.date, e.payment, e.description,
     plain(e.amountMinor), e.category, e.remarks,
   ].map(csvCell).join(','));
-  // BOM keeps Excel from mangling the Chinese in Description / Remarks.
+  // BOM keeps Excel from mangling non-ASCII text in Description / Remarks.
   return '\uFEFF' + [head.join(',')].concat(rows).join('\r\n') + '\r\n';
 }
 
@@ -406,31 +711,43 @@ function toJSON() {
   return JSON.stringify({
     app: 'Trip Spend',
     schemaVersion: SCHEMA_VERSION,
-    tripId: TRIP.id,
-    trip: TRIP,
+    currency: CURRENCY.code,
+    settings: settings,
     exportedAt: new Date().toISOString(),
     entries: sortedAsc(),
+    topups: topups,
   }, null, 2);
 }
 
 function toText() {
   const out = [];
-  out.push('Trip Spend · ' + TRIP.name + ' ' + TRIP.start + ' → ' + TRIP.end.slice(5));
-  out.push('總計 ' + money(sum(entries)) + ' · ' + entries.length + ' 筆');
+  const title = tripConfigured()
+    ? 'Trip Spend · ' + settings.tripStart + ' → ' + settings.tripEnd
+    : 'Trip Spend';
+  out.push(title);
+  out.push('Total ' + money(sum(entries)) + ' · ' + entries.length + ' entries');
   out.push('');
 
-  const dates = Array.from(groupByDate(entries).keys()).sort();
-  dates.forEach((date) => {
+  datesOf(entries).sort().forEach((date) => {
     const list = entries.filter((e) => e.date === date);
     const dn = dayNumber(date);
-    out.push((dn ? 'Day ' + dn + ' · ' + date.slice(5) : date) + ' · ' + money(sum(list)));
+    out.push((dn ? 'Day ' + dn + ' · ' + shortDate(date) : date) + ' · ' + money(sum(list)));
 
     const cats = new Map();
     list.forEach((e) => cats.set(e.category, (cats.get(e.category) || 0) + e.amountMinor));
-    const parts = Array.from(cats.entries()).sort((a, b) => b[1] - a[1])
-      .map((p) => p[0] + ' ' + money(p[1]));
-    out.push('  ' + parts.join(' · '));
+    out.push('  ' + Array.from(cats.entries()).sort((a, b) => b[1] - a[1])
+      .map((p) => p[0] + ' ' + money(p[1])).join(' · '));
   });
+
+  if (topups.length) {
+    out.push('');
+    out.push('Budget left');
+    settings.accounts.forEach((name) => {
+      const st = accountStats(name);
+      out.push('  ' + name + ' ' + money(st.left) +
+        ' (' + money(st.toppedUp) + ' topped up, ' + money(st.spent) + ' spent)');
+    });
+  }
   return out.join('\n');
 }
 
@@ -483,27 +800,29 @@ async function deliver(filename, mime, text) {
   return 'sheet';
 }
 
+function exportBaseName() {
+  return 'trip-spend-' + (settings.tripStart || localDate());
+}
+
 async function runExport(kind) {
-  if (!entries.length) { toast('仲未有紀錄'); return; }
-  const base = 'trip-spend-' + TRIP.id;
+  if (!entries.length) { toast('Nothing logged yet'); return; }
 
   if (kind === 'text') {
     const text = toText();
-    const ok = await copyText(text);
-    if (ok) toast('摘要已複製');
-    else showSheet('純文字摘要', text);
+    if (await copyText(text)) toast('Summary copied');
+    else showSheet('Text summary', text);
     return;
   }
 
   const isCSV = kind === 'csv';
   const result = await deliver(
-    base + (isCSV ? '.csv' : '.json'),
+    exportBaseName() + (isCSV ? '.csv' : '.json'),
     isCSV ? 'text/csv;charset=utf-8' : 'application/json',
     isCSV ? toCSV() : toJSON()
   );
   if (result === 'shared' || result === 'downloaded') {
     if (!isCSV) markBackedUp();
-    toast(isCSV ? 'CSV 出咗' : 'JSON 出咗');
+    toast(isCSV ? 'CSV exported' : 'JSON exported');
   }
 }
 
@@ -515,91 +834,116 @@ function markBackedUp() {
 }
 
 async function backupNow() {
-  if (!entries.length) { toast('仲未有紀錄'); return; }
+  if (!entries.length && !topups.length) { toast('Nothing logged yet'); return; }
   const text = toJSON();
-  const ok = await copyText(text);
-  if (ok) {
+  if (await copyText(text)) {
     markBackedUp();
-    toast('已複製 — 快啲貼落 Notes');
+    toast('Copied — paste it somewhere safe');
   } else {
-    showSheet('JSON 備份', text);
+    showSheet('JSON backup', text);
   }
 }
 
 function updateBanner() {
-  const el = $('#banner');
   const now = new Date();
   const today = localDate(now);
   const last = readKey(K.backup, null);
   const dismissed = readKey(K.banner, null);
 
-  const show = entries.length > 0
+  $('#banner').hidden = !(entries.length > 0
     && now.getHours() >= 20
     && dismissed !== today
-    && !(last && String(last).slice(0, 10) === today);
-
-  el.hidden = !show;
+    && !(last && String(last).slice(0, 10) === today));
 }
 
 /* ── import / wipe ──────────────────────────────────────── */
 
-function runImport() {
-  const raw = $('#import-box').value.trim();
-  if (!raw) { toast('貼返段 JSON 先'); return; }
-
-  let data;
-  try { data = JSON.parse(raw); }
-  catch (e) { toast('讀唔到 — 唔係有效 JSON'); return; }
-
-  const incoming = Array.isArray(data) ? data : (data && data.entries);
-  if (!Array.isArray(incoming)) { toast('搵唔到 entries'); return; }
-
-  const clean = incoming.filter((e) =>
-    e && typeof e.date === 'string' && Number.isFinite(e.amountMinor));
-  if (!clean.length) { toast('入面一筆有效紀錄都冇'); return; }
-
-  if (!confirm('Import ' + clean.length + ' 筆，會覆蓋而家全部 ' + entries.length + ' 筆。繼續？')) return;
-
-  entries = clean.map((e) => ({
+function cleanEntry(e) {
+  return {
     id: e.id || uid(),
-    schemaVersion: e.schemaVersion || SCHEMA_VERSION,
-    tripId: e.tripId || TRIP.id,
+    schemaVersion: SCHEMA_VERSION,
     date: e.date,
     amountMinor: Math.round(e.amountMinor),
-    currency: e.currency || TRIP.currency,
-    account: ACCOUNTS.indexOf(e.account) >= 0 ? e.account : ACCOUNTS[0],
+    currency: e.currency || CURRENCY.code,
+    account: settings.accounts.indexOf(e.account) >= 0 ? e.account : settings.accounts[0],
     payment: PAYMENTS.indexOf(e.payment) >= 0 ? e.payment : PAYMENTS[0],
     category: catOf(e.category) ? e.category : CATEGORIES[0].key,
     description: e.description || '',
     remarks: e.remarks || '',
     createdAt: e.createdAt || new Date().toISOString(),
     updatedAt: e.updatedAt || new Date().toISOString(),
+  };
+}
+
+function runImport() {
+  const raw = $('#import-box').value.trim();
+  if (!raw) { toast('Paste a backup first'); return; }
+
+  let data;
+  try { data = JSON.parse(raw); }
+  catch (e) { toast('That is not valid JSON'); return; }
+
+  const incoming = Array.isArray(data) ? data : (data && data.entries);
+  if (!Array.isArray(incoming)) { toast('No entries found in that backup'); return; }
+
+  const valid = (x) => x && typeof x.date === 'string' && Number.isFinite(x.amountMinor);
+  const cleanEntries = incoming.filter(valid);
+  const cleanTopups = (Array.isArray(data.topups) ? data.topups : []).filter(valid);
+
+  if (!cleanEntries.length && !cleanTopups.length) { toast('That backup has no usable records'); return; }
+  if (!confirm('Import ' + cleanEntries.length + ' entries and ' + cleanTopups.length +
+               ' top-ups, replacing everything here?')) return;
+
+  // Settings first, so account names in the backup validate against the
+  // accounts the backup itself was written with.
+  if (data.settings) {
+    settings = normaliseSettings(data.settings);
+    saveSettings();
+  }
+
+  entries = cleanEntries.map(cleanEntry);
+  topups = cleanTopups.map((t) => ({
+    id: t.id || uid(),
+    schemaVersion: SCHEMA_VERSION,
+    date: t.date,
+    amountMinor: Math.round(t.amountMinor),
+    currency: t.currency || CURRENCY.code,
+    account: settings.accounts.indexOf(t.account) >= 0 ? t.account : settings.accounts[0],
+    createdAt: t.createdAt || new Date().toISOString(),
   }));
   saveEntries();
+  saveTopups();
+
   $('#import-box').value = '';
+  buildChips($('#acct-grid'), settings.accounts.map((k) => ({ key: k })));
+  resetForm();
   renderExport();
-  toast('還原咗 ' + entries.length + ' 筆');
+  toast('Restored ' + entries.length + ' entries');
 }
 
 function runWipe() {
   if ($('#wipe-confirm').value.trim().toUpperCase() !== 'DELETE') return;
-  if (!confirm('清除全部 ' + entries.length + ' 筆？無得 undo。')) return;
+  if (!confirm('Erase all ' + entries.length + ' entries and ' + topups.length +
+               ' top-ups? No undo.')) return;
   entries = [];
+  topups = [];
   saveEntries();
+  saveTopups();
   $('#wipe-confirm').value = '';
   $('#wipe-btn').disabled = true;
   renderExport();
-  toast('清晒');
+  toast('Erased');
 }
 
 function renderExport() {
   const last = readKey(K.backup, null);
   $('#backup-state').textContent = last
-    ? '上次備份：' + new Date(last).toLocaleString('en-GB')
-    : '未備份過';
-  $('#trip-label').textContent = TRIP.name + ' ' + TRIP.start + ' → ' + TRIP.end
-    + ' · ' + entries.length + ' 筆';
-  document.querySelectorAll('.cur-code').forEach((el) => { el.textContent = TRIP.currency; });
+    ? 'Last backup: ' + new Date(last).toLocaleString('en-GB')
+    : 'Never backed up';
+  $('#trip-label').textContent = (tripConfigured()
+    ? settings.tripStart + ' → ' + settings.tripEnd
+    : 'no dates set') + ' · ' + entries.length + ' entries';
+  document.querySelectorAll('.cur-code').forEach((el) => { el.textContent = CURRENCY.code; });
   updateBanner();
 }
 
@@ -620,14 +964,16 @@ function toast(msg) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 2200);
 }
 
-/* ── wiring ─────────────────────────────────────────────── */
+/* ── keyboard ───────────────────────────────────────────── */
 
+// Keep the save bar above the software keyboard. The amount sits after the
+// category grid, so the keypad is usually the last thing open before saving
+// and a fixed bar would otherwise be buried under it.
 function trackKeyboard() {
   const vv = window.visualViewport;
   if (!vv) return;
   const bar = document.querySelector('.actions');
   if (!bar) return;
-
   const apply = () => {
     const overlap = window.innerHeight - (vv.height + vv.offsetTop);
     bar.style.bottom = overlap > 60 ? overlap + 'px' : '';
@@ -637,20 +983,29 @@ function trackKeyboard() {
   apply();
 }
 
-function init() {
-  $('#cur-symbol').textContent = TRIP.symbol;
+function wireAmountField(el) {
+  el.addEventListener('input', () => {
+    const cleaned = normaliseAmountInput(el.value);
+    if (cleaned !== el.value) el.value = cleaned;
+  });
+}
 
-  buildChips($('#cat-grid'), CATEGORIES, { icons: true });
-  buildChips($('#acct-grid'), ACCOUNTS.map((k) => ({ key: k })), { icons: false });
-  buildChips($('#pay-grid'), PAYMENTS.map((k) => ({ key: k })), { icons: false });
+/* ── wiring ─────────────────────────────────────────────── */
+
+function init() {
+  $('#cur-symbol').textContent = CURRENCY.symbol;
+
+  buildChips($('#cat-grid'), CATEGORIES);
+  buildChips($('#acct-grid'), settings.accounts.map((k) => ({ key: k })));
+  buildChips($('#pay-grid'), PAYMENTS.map((k) => ({ key: k })));
+
+  if (settings.accounts.indexOf(sticky.account) < 0) sticky.account = settings.accounts[0];
+  if (PAYMENTS.indexOf(sticky.payment) < 0) sticky.payment = PAYMENTS[0];
+
+  wireAmountField($('#amount'));
+  wireAmountField($('#topup-amount'));
 
   resetForm();
-
-  const amountInput = $('#amount');
-  amountInput.addEventListener('input', () => {
-    const cleaned = normaliseAmountInput(amountInput.value);
-    if (cleaned !== amountInput.value) amountInput.value = cleaned;
-  });
 
   $('#entry-form').addEventListener('submit', onSubmit);
   $('#delete-btn').addEventListener('click', onDelete);
@@ -659,6 +1014,18 @@ function init() {
   document.querySelectorAll('.tab').forEach((t) => {
     t.addEventListener('click', () => switchView(t.dataset.view));
   });
+  document.querySelectorAll('[data-goto]').forEach((b) => {
+    b.addEventListener('click', () => switchView(b.dataset.goto));
+  });
+
+  $('#topup-open').addEventListener('click', openTopup);
+  $('#topup-cancel').addEventListener('click', () => { $('#topup-modal').hidden = true; });
+  $('#topup-save').addEventListener('click', saveTopup);
+
+  $('#set-start').addEventListener('change', updateRangeState);
+  $('#set-end').addEventListener('change', updateRangeState);
+  $('#save-range').addEventListener('click', saveRange);
+  $('#save-accounts').addEventListener('click', saveAccounts);
 
   document.querySelectorAll('[data-export]').forEach((b) => {
     b.addEventListener('click', () => runExport(b.dataset.export));
@@ -680,18 +1047,21 @@ function init() {
   $('#sheet-close').addEventListener('click', () => { $('#sheet').hidden = true; });
   $('#sheet-copy').addEventListener('click', async () => {
     const ok = await copyText($('#sheet-text').value);
-    toast(ok ? '複製咗' : '複製唔到 — 長按揀全部');
+    toast(ok ? 'Copied' : 'Could not copy — select the text instead');
   });
 
-  switchView('add');
+  switchView(tripConfigured() ? 'add' : 'settings');
   updateBanner();
   trackKeyboard();
 
-  // The date rolls over and the 20:00 banner needs re-checking after a
-  // long backgrounding, so re-evaluate whenever the app comes back.
+  // The date rolls over and the 20:00 banner needs re-checking after a long
+  // backgrounding, so re-evaluate whenever the app comes back.
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
-      if ($('#date').value < localDate() && !editingId) $('#date').value = localDate();
+      if (!editingId && !$('#view-add').hidden) {
+        const today = localDate();
+        if (dayNumber(today) && selectedDate !== today && !$('#amount').value) selectDate(today);
+      }
       updateBanner();
     }
   });

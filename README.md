@@ -1,6 +1,6 @@
 # Trip Spend
 
-離線記帳 PWA，為 Italy 2026-08-22 → 08-28 而做。
+離線記帳 PWA。旅行日期、account 名喺 app 入面嘅 Settings 設定；UI 全英文。
 
 **https://dcwhung.github.io/trip-expense-tracker/**
 
@@ -15,7 +15,7 @@ Safari 開個網址 → 分享 → 加入主畫面。之後全螢幕、冇網址
 
 改咗任何 cache 住嘅檔案，記住喺 `sw.js` 頂 bump 個 `CACHE` 版本號，否則舊版會繼續喺部電話度跑。
 
-下次旅行：改 `app.js` 頂嗰個 `TRIP` 常數（日期、貨幣、符號），push，PWA 會自動攞新版，唔使重新安裝。
+下次旅行：喺 app 嘅 Settings 改日期就得。換貨幣先要改 `app.js` 頂嗰個 `CURRENCY` 常數再 push——PWA 會自動攞新版，唔使重新安裝。
 
 ## 測試
 

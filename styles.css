@@ -7,6 +7,7 @@
   --muted: #6B7573;
   --line: #DFE3E0;
   --danger: #B3261E;
+  --ok: #1B7A4B;
   --accent: var(--green);
   --radius: 14px;
   --tabbar-h: 58px;
@@ -20,6 +21,7 @@
     --muted: #97A29E;
     --line: #2C3531;
     --danger: #F2B8B5;
+    --ok: #62C48F;
     --accent: #4BA88A;
   }
 }
@@ -122,11 +124,9 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
   font-size: 12px; font-weight: 600; line-height: 1.2; text-align: center;
 }
 .chip .ico { font-size: 22px; }
-.chip .en { font-size: 10px; font-weight: 500; color: var(--muted); }
 .chip[aria-pressed="true"] {
   background: var(--green); border-color: var(--green); color: #fff;
 }
-.chip[aria-pressed="true"] .en { color: rgba(255,255,255,0.8); }
 
 .seg .chip { min-height: 46px; font-size: 13px; }
 
@@ -241,3 +241,70 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
   padding: 11px 18px; border-radius: 999px; font-size: 14px; font-weight: 600;
   max-width: 88vw; text-align: center;
 }
+
+/* ── title row & pill ─────────────────────── */
+.title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.title-row .screen-title { margin-bottom: 16px; }
+.pill {
+  flex: none; margin-bottom: 16px;
+  background: var(--surface); border: 1px solid var(--line); color: var(--text);
+  border-radius: 999px; padding: 9px 15px; font: inherit; font-size: 14px; font-weight: 600;
+}
+
+/* ── blocked notice ───────────────────────── */
+.notice {
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
+}
+.notice strong { display: block; font-size: 16px; margin-bottom: 6px; }
+.notice p { margin: 0 0 14px; font-size: 14px; color: var(--muted); }
+
+/* ── date strip ───────────────────────────── */
+.date-strip {
+  display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.date-strip::-webkit-scrollbar { display: none; }
+.date-chip {
+  flex: none; min-width: 62px; min-height: 46px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); color: var(--text);
+  font: inherit; font-size: 15px; font-weight: 600;
+}
+.date-chip[aria-pressed="true"] {
+  background: var(--green); border-color: var(--green); color: #fff;
+}
+#day-badge:not(:empty) {
+  font-style: normal; font-weight: 700; color: var(--accent); margin-left: 6px;
+}
+
+/* ── section heads & budgets ──────────────── */
+.section-head {
+  font-size: 13px; font-weight: 700; color: var(--muted);
+  margin: 22px 2px 8px; letter-spacing: 0.02em;
+}
+.budget-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.budget-card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
+  border-radius: var(--radius); padding: 13px 14px;
+}
+.budget-card.is-ok { border-left-color: var(--ok); }
+.budget-card.is-low { border-left-color: var(--danger); }
+.budget-top { display: flex; flex-direction: column; gap: 2px; }
+.budget-name { font-size: 13px; color: var(--muted); font-weight: 600; }
+.budget-left { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.budget-card.is-ok .budget-left { color: var(--ok); }
+.budget-card.is-low .budget-left { color: var(--danger); }
+.budget-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+.row-amt.is-credit { color: var(--ok); }
+
+/* ── settings ─────────────────────────────── */
+.range-state {
+  font-size: 14px; font-weight: 600; padding: 11px 13px;
+  border-radius: var(--radius); background: var(--bg); margin-bottom: 12px;
+}
+.range-state.is-good { color: var(--ok); }
+.range-state.is-bad { color: var(--danger); }

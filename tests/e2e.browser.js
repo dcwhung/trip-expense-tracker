@@ -51,7 +51,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     JSON.stringify(dialogs));
   check('the entry form is hidden', await page.locator('#entry-form').isHidden());
   check('a blocking notice is shown', !(await page.locator('#add-blocked').isHidden()));
-  check('Top up is hidden too', await page.locator('#topup-open').isHidden());
+
 
   section('trip date validation');
   await page.click('.tab[data-view="settings"]');
@@ -103,18 +103,34 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.click('.tab[data-view="add"]');
   await page.waitForTimeout(200);
   check('form is usable now', !(await page.locator('#entry-form').isHidden()));
-  check('one button per trip day', (await page.locator('#date-strip .date-chip').count()) === 7,
+  check('one button per trip day plus Today',
+    (await page.locator('#date-strip .date-chip').count()) === 8,
     String(await page.locator('#date-strip .date-chip').count()));
+  check('Today sits first', (await page.locator('#date-strip .date-chip').first()
+    .textContent()) === 'Today');
+  check('Today is enabled while the trip is running',
+    !(await page.locator('#date-today').isDisabled()));
   check('labels read like 22/8',
-    (await page.locator('#date-strip .date-chip').first().textContent()) === '22/8');
-  check("today inside the trip is preselected",
-    (await page.locator('#date-strip .date-chip[aria-pressed="true"]').textContent()) === '23/8');
+    (await page.locator('#date-strip .date-chip[data-value]').first().textContent()) === '22/8');
+  check("today inside the trip is preselected by default",
+    (await page.locator('#date-strip .date-chip[data-value][aria-pressed="true"]')
+      .textContent()) === '23/8');
+  check('Today reads as selected too',
+    (await page.locator('#date-today').getAttribute('aria-pressed')) === 'true');
   check('Day badge follows the selection',
     (await page.textContent('#day-badge')) === 'Day 2', await page.textContent('#day-badge'));
   await page.click('#date-strip .date-chip[data-value="2026-08-24"]');
   await page.waitForTimeout(120);
   check('picking 24/8 shows Day 3', (await page.textContent('#day-badge')) === 'Day 3',
     await page.textContent('#day-badge'));
+  check('Today deselects when another day is picked',
+    (await page.locator('#date-today').getAttribute('aria-pressed')) === 'false');
+  await page.click('#date-today');
+  await page.waitForTimeout(120);
+  check('Today jumps back to the current day',
+    (await page.textContent('#day-badge')) === 'Day 2', await page.textContent('#day-badge'));
+  await page.click('#date-strip .date-chip[data-value="2026-08-24"]');
+  await page.waitForTimeout(120);
 
   const budget = async (i) => (await page.locator('.budget-card').nth(i).textContent()).trim();
   await page.click('.tab[data-view="list"]');
@@ -161,13 +177,21 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     .getAttribute('class')).includes('is-low'));
 
   await page.click('.tab[data-view="add"]');
-  await page.click('#topup-open');
   await page.waitForTimeout(150);
-  await page.fill('#topup-amount', '500');
-  await page.click('#topup-acct .chip[data-value="Donald"]');
-  await page.click('#topup-save');
-  await page.waitForTimeout(200);
-  check('top-up modal closes', await page.locator('#topup-modal').isHidden());
+  await page.click('#cat-grid .chip[data-value="__topup"]');
+  await page.waitForTimeout(120);
+  check('top-up mode hides Payment', await page.locator('#field-payment').isHidden());
+  check('top-up mode hides Description', await page.locator('#field-description').isHidden());
+  check('top-up mode hides Remarks', await page.locator('#field-remarks').isHidden());
+  check('the button reads Confirm',
+    (await page.textContent('#submit-btn')) === 'Confirm', await page.textContent('#submit-btn'));
+  await page.fill('#amount', '500');
+  await page.click('#acct-grid .chip[data-value="Donald"]');
+  await page.click('#submit-btn');
+  await page.waitForTimeout(250);
+  check('the form returns to expense mode', !(await page.locator('#field-payment').isHidden()));
+  check('the button reads Save again',
+    (await page.textContent('#submit-btn')) === 'Save', await page.textContent('#submit-btn'));
 
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(200);
@@ -196,11 +220,12 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     (await budget(0)).includes('-€417.30'), await budget(0));
   // Put it back for the remaining tests.
   await page.click('.tab[data-view="add"]');
-  await page.click('#topup-open');
-  await page.fill('#topup-amount', '500');
-  await page.click('#topup-acct .chip[data-value="Donald"]');
-  await page.click('#topup-save');
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(150);
+  await page.click('#cat-grid .chip[data-value="__topup"]');
+  await page.fill('#amount', '500');
+  await page.click('#acct-grid .chip[data-value="Donald"]');
+  await page.click('#submit-btn');
+  await page.waitForTimeout(250);
 
   section('backup banner at 21:30');
   await page.click('.tab[data-view="list"]');

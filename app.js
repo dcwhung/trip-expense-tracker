@@ -65,6 +65,9 @@ if (!sticky || typeof sticky !== 'object') sticky = {};
 
 let selectedDate = null;
 let editingId = null;
+let mode = 'expense';          // 'expense' | 'topup'
+
+const TOPUP_KEY = '__topup';
 
 const saveEntries = () => writeKey(K.entries, entries);
 const saveTopups = () => writeKey(K.topups, topups);
@@ -207,12 +210,13 @@ function buildChips(host, items, opts) {
     b.className = 'chip';
     b.dataset.value = item.key;
     b.setAttribute('aria-pressed', 'false');
+    if (item.wide) b.classList.add('chip-wide');
     if (item.ico) {
       const i = document.createElement('span');
       i.className = 'ico';
       i.textContent = item.ico;
       const n = document.createElement('span');
-      n.textContent = item.key;
+      n.textContent = item.label || item.key;
       b.appendChild(i);
       b.appendChild(n);
     } else {
@@ -267,13 +271,27 @@ function renderAdd() {
   const ok = tripConfigured();
   $('#add-blocked').hidden = ok;
   $('#entry-form').hidden = !ok;
-  $('#topup-open').hidden = !ok;
   if (ok) renderDateStrip();
 }
 
 function renderDateStrip() {
   const host = $('#date-strip');
   host.innerHTML = '';
+
+  // Shortcut to the current day. Disabled rather than hidden when today
+  // falls outside the trip, so the strip does not change shape mid-trip.
+  const today = localDate();
+  const todayInTrip = !!dayNumber(today);
+  const jump = document.createElement('button');
+  jump.type = 'button';
+  jump.className = 'date-chip date-chip-today';
+  jump.id = 'date-today';
+  jump.textContent = 'Today';
+  jump.disabled = !todayInTrip;
+  jump.setAttribute('aria-pressed', String(todayInTrip && selectedDate === today));
+  jump.addEventListener('click', () => { selectDate(today); scrollSelectedIntoView(); });
+  host.appendChild(jump);
+
   tripDates().forEach((iso) => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -290,8 +308,10 @@ function renderDateStrip() {
 
 function selectDate(iso) {
   selectedDate = iso;
+  const today = localDate();
   $('#date-strip').querySelectorAll('.date-chip').forEach((b) => {
-    b.setAttribute('aria-pressed', String(b.dataset.value === iso));
+    const on = b.id === 'date-today' ? (iso === today) : (b.dataset.value === iso);
+    b.setAttribute('aria-pressed', String(on));
   });
   updateDayBadge();
 }
@@ -302,7 +322,7 @@ function updateDayBadge() {
 }
 
 function scrollSelectedIntoView() {
-  const el = $('#date-strip').querySelector('.date-chip[aria-pressed="true"]');
+  const el = $('#date-strip').querySelector('.date-chip[data-value][aria-pressed="true"]');
   if (el && el.scrollIntoView) {
     el.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
@@ -320,6 +340,7 @@ function resetForm() {
   setChip($('#cat-grid'), null);
   setChip($('#acct-grid'), sticky.account);
   setChip($('#pay-grid'), sticky.payment);
+  setMode('expense');
   $('#submit-btn').textContent = 'Save';
   $('#delete-btn').hidden = true;
   $('#cancel-btn').hidden = true;
@@ -338,6 +359,7 @@ function openEdit(id) {
   setChip($('#cat-grid'), e.category);
   setChip($('#acct-grid'), e.account);
   setChip($('#pay-grid'), e.payment);
+  setMode('expense');
   $('#submit-btn').textContent = 'Update';
   $('#delete-btn').hidden = false;
   $('#cancel-btn').hidden = false;
@@ -348,6 +370,8 @@ function openEdit(id) {
 function onSubmit(ev) {
   ev.preventDefault();
   if (!tripConfigured()) { alert('Set your trip dates in Settings first.'); return; }
+
+  if (mode === 'topup') { addTopup(); return; }
 
   if (!selectedDate) { toast('Pick a date'); return; }
 
@@ -417,32 +441,42 @@ function onDelete() {
 
 /* ── top-ups ────────────────────────────────────────────── */
 
-function openTopup() {
-  buildChips($('#topup-acct'), settings.accounts.map((k) => ({ key: k })));
-  setChip($('#topup-acct'), sticky.account || settings.accounts[0]);
-  $('#topup-amount').value = '';
-  $('#topup-date').value = localDate();
-  $('#topup-modal').hidden = false;
+// A top-up reuses the entry form: same date strip, amount and account, with
+// the expense-only fields hidden and the button relabelled.
+function setMode(next) {
+  mode = next;
+  const isTopup = next === 'topup';
+  $('#field-payment').hidden = isTopup;
+  $('#field-description').hidden = isTopup;
+  $('#field-remarks').hidden = isTopup;
+  $('#submit-btn').textContent = isTopup ? 'Confirm' : (editingId ? 'Update' : 'Save');
 }
 
-function saveTopup() {
-  const amountMinor = parseAmount($('#topup-amount').value);
+function addTopup() {
+  if (!selectedDate) { toast('Pick a date'); return; }
+  const amountMinor = parseAmount($('#amount').value);
   if (amountMinor == null || amountMinor <= 0) { toast('That amount is not valid'); return; }
-  const account = getChip($('#topup-acct')) || settings.accounts[0];
-  const date = $('#topup-date').value || localDate();
+  const account = getChip($('#acct-grid')) || settings.accounts[0];
 
   topups.push({
     id: uid(),
     schemaVersion: SCHEMA_VERSION,
-    date: date,
+    date: selectedDate,
     amountMinor: amountMinor,
     currency: CURRENCY.code,
     account: account,
     createdAt: new Date().toISOString(),
   });
   if (!saveTopups()) return;
-  $('#topup-modal').hidden = true;
+
+  sticky.account = account;
+  writeKey(K.sticky, sticky);
+
+  const keepDate = selectedDate;
+  resetForm();
+  selectDate(keepDate);
   toast('Topped up ' + account + ' ' + money(amountMinor));
+  if (navigator.vibrate) navigator.vibrate(12);
 }
 
 function deleteTopup(id) {
@@ -1006,7 +1040,9 @@ function wireAmountField(el) {
 function init() {
   $('#cur-symbol').textContent = CURRENCY.symbol;
 
-  buildChips($('#cat-grid'), CATEGORIES);
+  buildChips($('#cat-grid'), CATEGORIES.concat([
+    { key: TOPUP_KEY, ico: '💶', label: 'Top Up', wide: true },
+  ]), { onPick: (key) => setMode(key === TOPUP_KEY ? 'topup' : 'expense') });
   buildChips($('#acct-grid'), settings.accounts.map((k) => ({ key: k })));
   buildChips($('#pay-grid'), PAYMENTS.map((k) => ({ key: k })));
 
@@ -1014,7 +1050,6 @@ function init() {
   if (PAYMENTS.indexOf(sticky.payment) < 0) sticky.payment = PAYMENTS[0];
 
   wireAmountField($('#amount'));
-  wireAmountField($('#topup-amount'));
 
   resetForm();
 
@@ -1028,10 +1063,6 @@ function init() {
   document.querySelectorAll('[data-goto]').forEach((b) => {
     b.addEventListener('click', () => switchView(b.dataset.goto));
   });
-
-  $('#topup-open').addEventListener('click', openTopup);
-  $('#topup-cancel').addEventListener('click', () => { $('#topup-modal').hidden = true; });
-  $('#topup-save').addEventListener('click', saveTopup);
 
   $('#set-start').addEventListener('change', updateRangeState);
   $('#set-end').addEventListener('change', updateRangeState);

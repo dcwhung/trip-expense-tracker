@@ -32,11 +32,11 @@ const OUT = process.env.SHOT_DIR || '/tmp';
 
   await page.click('.tab[data-view="add"]');
   await page.waitForTimeout(200);
-  await page.click('#topup-open');
-  await page.waitForTimeout(150);
-  await page.fill('#topup-amount', '500');
-  await page.click('#topup-save');
-  await page.waitForTimeout(200);
+  await page.click('#cat-grid .chip[data-value="__topup"]');
+  await page.waitForTimeout(120);
+  await page.fill('#amount', '500');
+  await page.click('#submit-btn');
+  await page.waitForTimeout(250);
 
   const rows = [
     ['4.50', 'Food', 'Gelato Roma', '2026-08-22'],

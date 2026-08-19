@@ -26,10 +26,7 @@
 
   <!-- ───────────── Add ───────────── -->
   <section id="view-add" class="view">
-    <div class="title-row">
-      <h1 class="screen-title" id="add-title">Add</h1>
-      <button id="topup-open" class="pill" type="button">＋ Top up</button>
-    </div>
+    <h1 class="screen-title" id="add-title">Add</h1>
 
     <div id="add-blocked" class="notice" hidden>
       <strong>Set your trip dates first</strong>
@@ -57,7 +54,7 @@
         </div>
       </label>
 
-      <div class="field">
+      <div class="field" id="field-payment">
         <span class="label">Payment</span>
         <div id="pay-grid" class="grid grid-3 seg"></div>
       </div>
@@ -67,13 +64,13 @@
         <div id="acct-grid" class="grid grid-2 seg"></div>
       </div>
 
-      <label class="field">
+      <label class="field" id="field-description">
         <span class="label">Description <em>optional</em></span>
         <input id="description" type="text" autocomplete="off"
                placeholder="Merchant — leave blank for card, fill from statement later">
       </label>
 
-      <label class="field">
+      <label class="field" id="field-remarks">
         <span class="label">Remarks <em>optional</em></span>
         <textarea id="remarks" rows="2" placeholder="Notes"></textarea>
       </label>
@@ -178,38 +175,6 @@
   <button class="tab" type="button" data-view="export"><span>↥</span>Export</button>
   <button class="tab" type="button" data-view="settings"><span>⚙</span>Settings</button>
 </nav>
-
-<!-- Top-up modal -->
-<div id="topup-modal" class="sheet" hidden>
-  <div class="sheet-inner">
-    <div class="sheet-head">
-      <strong>Top up</strong>
-      <button id="topup-cancel" class="btn btn-ghost" type="button">Close</button>
-    </div>
-    <p class="hint">Adds to an account's budget. A top-up is not an expense — it never appears in the CSV or the spend total.</p>
-
-    <div class="field">
-      <span class="label">Account</span>
-      <div id="topup-acct" class="grid grid-2 seg"></div>
-    </div>
-
-    <label class="field amount-field">
-      <span class="label">Amount</span>
-      <div class="amount-row">
-        <span class="cur">€</span>
-        <input id="topup-amount" type="text" inputmode="decimal" autocomplete="off"
-               autocorrect="off" spellcheck="false" placeholder="0.00">
-      </div>
-    </label>
-
-    <label class="field">
-      <span class="label">Date</span>
-      <input id="topup-date" type="date">
-    </label>
-
-    <button id="topup-save" class="btn btn-primary block" type="button">Add top-up</button>
-  </div>
-</div>
 
 <div id="sheet" class="sheet" hidden>
   <div class="sheet-inner">

@@ -72,17 +72,22 @@
 ## 2. 畫面
 
 ### Add
-1. **Date** — 橫向可 scroll 嘅日期掣，按 trip range 生成，label 係 `24/8`
+1. **Date** — 橫向可 scroll 嘅日期掣，最前係 **Today**，之後按 trip range 每日一格，label 係 `24/8`
+   - **預設揀今日**；今日唔喺 range 就唔預揀，`Today` 掣亦會 disable（唔隱藏，免得條 strip 中途變形）
    - 揀咗邊日就喺標題右邊顯示 `Day 3`；**未揀就唔顯示**
-   - 今日喺 range 入面就自動揀今日；唔喺就唔預揀
    - 儲存一筆之後**留喺同一日**，方便連續入
-2. **Category** — 3×2 icon grid
+2. **Category** — 3×2 icon grid，下面加一格**全闊虛線嘅 `Top Up`**
 3. **Amount** — `inputmode="decimal"`，逐個 keystroke 過濾，**最多兩位小數**
 4. **Payment**（sticky） 5. **Account**（sticky）
 6. **Description**（optional） 7. **Remarks**（optional）
 8. **Save** — 固定喺底部，跟住鍵盤浮上去
 
-**Top up** 掣喺右上角 → 彈出 modal：Account / Amount / Date → Add。
+**Top up 冇獨立 modal** —— 撳 `Top Up` 就係切換同一個表單嘅模式：
+- 收起 Payment / Description / Remarks
+- 淨低 Date / Amount / Account
+- 掣由 `Save` 變 `Confirm`
+- 確認完自動彈返做 expense 模式，留喺同一日
+- 因為共用 date strip，**top-up 嘅日期只揀得旅程範圍內嘅日子**
 
 **未設定 trip dates**：整個表單隱藏，出阻擋畫面 + `alert()`，有掣直接去 Settings。
 
@@ -161,7 +166,9 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 - [ ] 改 account 名 → 舊紀錄同 top-up 都跟住改
 
 **入數**
-- [ ] Date strip 有 7 個掣，scroll 得，揀咗顯示 `Day N`
+- [ ] Date strip 有 `Today` + 7 個日子掣，scroll 得，揀咗顯示 `Day N`
+- [ ] 開 app 預設揀咗今日（今日喺 range 內）；撳 `Today` 跳返今日
+- [ ] 撳 `Top Up` → Payment / Description / Remarks 消失，掣變 `Confirm`；確認後彈返正常模式
 - [ ] 儲存後留喺同一日
 - [ ] 撳金額 → 鍵盤彈出 → **「Save」掣仍然睇到同撳到**
 - [ ] 金額打 `12.345` → 自動變 `12.34`

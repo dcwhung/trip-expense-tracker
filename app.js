@@ -4,7 +4,7 @@
    Trip dates and account names live in Settings; the currency is fixed per
    build. See PLAN.md for the decisions behind all of this. */
 
-const BUILD = 'v30';                 // keep in step with CACHE in sw.js
+const BUILD = 'v31';                 // keep in step with CACHE in sw.js
 const CURRENCY = { code: 'EUR', symbol: '€' };
 const SCHEMA_VERSION = 2;
 const LOW_BALANCE_MINOR = 10000;   // under €100 left shows red

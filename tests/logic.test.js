@@ -274,5 +274,31 @@ check('kept, but shown without a Day label', () => {
   assert.ok(!t.includes('Day '), 'should not label a Day');
 });
 
+console.log('\n── stylesheet is parseable ──');
+// A stray closing brace at top level makes the CSS parser skip the rule that
+// follows it. That silently killed the date strip's flex container once, and
+// no behavioural test noticed.
+check('braces balance, with no stray closer', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  let depth = 0, line = 1;
+  const strays = [];
+  for (const ch of css) {
+    if (ch === '\n') line++;
+    else if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth < 0) { strays.push(line); depth = 0; }
+    }
+  }
+  assert.deepStrictEqual(strays, [], 'stray } on line(s) ' + strays.join(', '));
+  assert.strictEqual(depth, 0, depth + ' unclosed block(s)');
+});
+check('every rule the layout depends on survives parsing', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  ['.date-strip', '.date-chip', '.budget-card', '.state-line', '.toast', '.bar-fill']
+    .forEach((sel) => assert.ok(css.includes(sel + ' {') || css.includes(sel + ','),
+      'missing rule for ' + sel));
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed\n');
 process.exit(fail ? 1 : 0);

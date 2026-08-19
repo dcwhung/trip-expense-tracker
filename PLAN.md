@@ -207,6 +207,11 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 - **改咗任何 cache 住嘅檔案，一定要同時 bump `sw.js` 嘅 `CACHE` 同 `app.js` 嘅 `BUILD`**
 - Service Worker 用 stale-while-revalidate，新版係喺背景攞返嚟。所以頁面會**聽住 `controllerchange`，一發現新 worker 接管就自己 reload 一次** —— 冇呢句嘅話，用家 reload 一次仲係舊版，要 reload 第二次先見到新嘢
 - **Export 版底部有 `build vNN`** —— 懷疑撞到舊 cache 嗰陣，睇一眼就知答案，唔使估
+
+### ⚠️ CSS 有語法錯誤係靜靜哋壞嘅
+頂層一隻多餘嘅 `}` 唔會令 CSS 報錯 —— parser 會跳去下一個 block，**啱啱好食咗緊接嗰條規則**。試過一次：`.date-strip` 個 flex 容器冇咗，啲日期掣照樣有樣（`.date-chip` 生還）但換晒行，而 185 條行為測試全部照過。
+
+所以 `tests/logic.test.js` 有兩道閘：**大括號平衡檢查**，同埋**版面關鍵 selector 仍然存在**；`tests/e2e.browser.js` 再驗 date strip 真係 `display:flex` 兼 scroll 得到、冇掣跌落第二行。呢三條都用「重新引入嗰隻流氓 `}`」驗證過會真係 fail。
 - 下次旅行：Settings 改日期就得；換貨幣先要改 `app.js` 嘅 `CURRENCY` 常數
 
 ---

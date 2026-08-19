@@ -172,6 +172,19 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     String(await page.locator('#date-strip .date-chip').count()));
   check('Today sits first', (await page.locator('#date-strip .date-chip').first()
     .textContent()) === 'Today');
+  // The strip is a scrolling flex row; a CSS parse error once turned it into
+  // a block and the chips silently wrapped onto a second line.
+  check('the strip is a flex row that actually scrolls', await page.evaluate(() => {
+    const strip = document.querySelector('#date-strip');
+    const cs = getComputedStyle(strip);
+    return cs.display === 'flex' && cs.overflowX === 'auto' &&
+      strip.scrollWidth > strip.clientWidth;
+  }));
+  check('no chip wraps onto a second row', await page.evaluate(() => {
+    const tops = Array.from(document.querySelectorAll('#date-strip .date-chip'))
+      .map((c) => Math.round(c.getBoundingClientRect().top));
+    return new Set(tops).size === 1;
+  }));
   check('Today is enabled', !(await page.locator('#date-today').isDisabled()));
   check('labels read like 22/8',
     (await page.locator('#date-strip .date-chip[data-value]').first().textContent()) === '22/8');

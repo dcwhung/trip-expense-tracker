@@ -286,9 +286,7 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
   max-width: 84vw; text-align: left;
 }
 .toast-icon { flex: none; font-size: 15px; line-height: 1.35; }
-}
 
-/* ── title row & pill ─────────────────────── */
 /* ── date strip ───────────────────────────── */
 .date-strip {
   display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px;

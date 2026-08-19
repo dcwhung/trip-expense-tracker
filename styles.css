@@ -302,9 +302,14 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 .row-amt.is-credit { color: var(--ok); }
 
 /* ── settings ─────────────────────────────── */
+.date-range-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.date-range-row input { flex: 1; min-width: 0; }
+.range-arrow { flex: none; color: var(--muted); font-size: 18px; font-weight: 600; }
+.stack-input { margin-bottom: 8px; }
+
 .range-state {
   font-size: 14px; font-weight: 600; padding: 11px 13px;
-  border-radius: var(--radius); background: var(--bg); margin-bottom: 12px;
+  border-radius: var(--radius); background: var(--bg);
 }
 .range-state.is-good { color: var(--ok); }
 .range-state.is-bad { color: var(--danger); }

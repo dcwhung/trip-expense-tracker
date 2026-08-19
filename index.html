@@ -147,33 +147,25 @@
     <h1 class="screen-title">Settings</h1>
 
     <div class="card">
-      <div class="card-title">Trip dates</div>
-      <label class="field">
-        <span class="label">Start</span>
-        <input id="set-start" type="date">
-      </label>
-      <label class="field">
-        <span class="label">End</span>
-        <input id="set-end" type="date">
-      </label>
+      <div class="date-range-row">
+        <input id="set-start" type="date" aria-label="Trip start date">
+        <span class="range-arrow" aria-hidden="true">→</span>
+        <input id="set-end" type="date" aria-label="Trip end date">
+      </div>
       <div id="range-state" class="range-state">Not set</div>
-      <button class="btn btn-primary block" type="button" id="save-range">Save trip dates</button>
       <p class="hint" id="range-warning" hidden></p>
     </div>
 
     <div class="card">
-      <div class="card-title">Accounts</div>
-      <label class="field">
-        <span class="label">Account 1</span>
-        <input id="set-acct-0" type="text" autocomplete="off" maxlength="24">
-      </label>
-      <label class="field">
-        <span class="label">Account 2</span>
-        <input id="set-acct-1" type="text" autocomplete="off" maxlength="24">
-      </label>
-      <button class="btn btn-primary block" type="button" id="save-accounts">Save accounts</button>
-      <p class="hint">Renaming an account updates every existing entry and top-up. Budgets come from top-ups on the Add screen, not from here.</p>
+      <input id="set-acct-0" class="stack-input" type="text" placeholder="Account 1"
+             autocomplete="off" maxlength="24" aria-label="First account name">
+      <input id="set-acct-1" class="stack-input" type="text" placeholder="Account 2"
+             autocomplete="off" maxlength="24" aria-label="Second account name">
+      <div id="accounts-state" class="range-state" hidden></div>
+      <p class="hint">Renaming an account updates every existing entry and top-up. Budgets come from top-ups on the Add screen.</p>
     </div>
+
+    <button class="btn btn-primary block" type="button" id="save-settings">Save</button>
   </section>
 
 </main>

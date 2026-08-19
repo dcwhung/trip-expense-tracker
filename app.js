@@ -621,17 +621,18 @@ function renderSettings() {
   $('#set-acct-0').value = settings.accounts[0];
   $('#set-acct-1').value = settings.accounts[1];
   updateRangeState();
+  updateAccountsState();
 }
 
 function updateRangeState() {
-  const start = $('#set-start').value;
-  const end = $('#set-end').value;
   const el = $('#range-state');
-  const err = rangeError(start, end);
+  const err = rangeError($('#set-start').value, $('#set-end').value);
   if (err) {
     el.textContent = err;
     el.className = 'range-state is-bad';
   } else {
+    const start = $('#set-start').value;
+    const end = $('#set-end').value;
     const n = daysBetween(start, end) + 1;
     el.textContent = shortDate(start) + ' → ' + shortDate(end) + ' · ' + n +
       (n === 1 ? ' day' : ' days');
@@ -640,15 +641,51 @@ function updateRangeState() {
   return err;
 }
 
-function saveRange() {
-  const start = $('#set-start').value;
-  const end = $('#set-end').value;
-  const err = rangeError(start, end);
-  if (err) { toast(err); return; }
+function accountsError(names) {
+  if (!names[0] || !names[1]) return 'Both accounts need a name.';
+  if (names[0] === names[1]) return 'The two accounts need different names.';
+  return '';
+}
 
-  settings.tripStart = start;
-  settings.tripEnd = end;
+function updateAccountsState() {
+  const err = accountsError(accountFieldValues());
+  const el = $('#accounts-state');
+  el.hidden = !err;
+  el.textContent = err;
+  el.className = 'range-state is-bad';
+  return err;
+}
+
+const accountFieldValues = () => [$('#set-acct-0').value.trim(), $('#set-acct-1').value.trim()];
+
+function applyAccountRename(next) {
+  const rename = {};
+  settings.accounts.forEach((old, i) => { if (old !== next[i]) rename[old] = next[i]; });
+  if (!Object.keys(rename).length) return false;
+
+  entries.forEach((e) => { if (rename[e.account]) e.account = rename[e.account]; });
+  topups.forEach((t) => { if (rename[t.account]) t.account = rename[t.account]; });
+  if (rename[sticky.account]) sticky.account = rename[sticky.account];
+  saveEntries();
+  saveTopups();
+  writeKey(K.sticky, sticky);
+  return true;
+}
+
+// One Save for the whole screen. Both kinds of problem are already spelled
+// out inline as you type, so a failed save stays silent rather than
+// repeating the same sentence in a toast.
+function saveAllSettings() {
+  if (updateRangeState() || updateAccountsState()) return;
+
+  const names = accountFieldValues();
+  const renamed = applyAccountRename(names);
+  settings.accounts = names;
+  settings.tripStart = $('#set-start').value;
+  settings.tripEnd = $('#set-end').value;
   if (!saveSettings()) return;
+
+  if (renamed) buildChips($('#acct-grid'), settings.accounts.map((k) => ({ key: k })));
 
   // Entries logged outside the new range stay put, but they lose their Day
   // label — say so rather than letting it look like data went missing.
@@ -660,34 +697,8 @@ function saveRange() {
       ' outside this range. They are kept, but shown without a Day number.';
   }
 
-  updateRangeState();
   resetForm();
-  toast('Trip dates saved');
-}
-
-function saveAccounts() {
-  const next = [$('#set-acct-0').value.trim(), $('#set-acct-1').value.trim()];
-  if (!next[0] || !next[1]) { toast('Both accounts need a name'); return; }
-  if (next[0] === next[1]) { toast('The two accounts need different names'); return; }
-
-  const prev = settings.accounts.slice();
-  const rename = {};
-  prev.forEach((old, i) => { if (old !== next[i]) rename[old] = next[i]; });
-
-  if (Object.keys(rename).length) {
-    entries.forEach((e) => { if (rename[e.account]) e.account = rename[e.account]; });
-    topups.forEach((t) => { if (rename[t.account]) t.account = rename[t.account]; });
-    if (rename[sticky.account]) sticky.account = rename[sticky.account];
-    saveEntries();
-    saveTopups();
-    writeKey(K.sticky, sticky);
-  }
-
-  settings.accounts = next;
-  if (!saveSettings()) return;
-  buildChips($('#acct-grid'), settings.accounts.map((k) => ({ key: k })));
-  resetForm();
-  toast('Accounts saved');
+  toast('Saved');
 }
 
 /* ── exports ────────────────────────────────────────────── */
@@ -1024,8 +1035,9 @@ function init() {
 
   $('#set-start').addEventListener('change', updateRangeState);
   $('#set-end').addEventListener('change', updateRangeState);
-  $('#save-range').addEventListener('click', saveRange);
-  $('#save-accounts').addEventListener('click', saveAccounts);
+  $('#set-acct-0').addEventListener('input', updateAccountsState);
+  $('#set-acct-1').addEventListener('input', updateAccountsState);
+  $('#save-settings').addEventListener('click', saveAllSettings);
 
   document.querySelectorAll('[data-export]').forEach((b) => {
     b.addEventListener('click', () => runExport(b.dataset.export));

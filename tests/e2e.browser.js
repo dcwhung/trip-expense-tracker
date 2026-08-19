@@ -61,10 +61,28 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('reversed range is called out',
     /before the start/.test(await page.textContent('#range-state')),
     await page.textContent('#range-state'));
-  await page.click('#save-range');
+  await page.click('#save-settings');
   await page.waitForTimeout(150);
   check('reversed range is not saved',
     await page.evaluate(() => !JSON.parse(localStorage.getItem('tripspend.settings.v1') || '{}').tripStart));
+  check('Save does not repeat the message that is already on screen',
+    await page.locator('#toast').isHidden());
+
+  await page.fill('#set-acct-0', '');
+  await page.waitForTimeout(120);
+  check('an empty account name is flagged inline',
+    !(await page.locator('#accounts-state').isHidden()) &&
+    /Both accounts need a name/.test(await page.textContent('#accounts-state')),
+    await page.textContent('#accounts-state'));
+  await page.fill('#set-acct-0', 'Kwan');
+  await page.waitForTimeout(120);
+  check('duplicate account names are flagged inline',
+    /different names/.test(await page.textContent('#accounts-state')),
+    await page.textContent('#accounts-state'));
+  await page.fill('#set-acct-0', 'Donald');
+  await page.waitForTimeout(120);
+  check('the inline account error clears once fixed',
+    await page.locator('#accounts-state').isHidden());
 
   await page.fill('#set-start', '2026-08-22');
   await page.fill('#set-end', '2026-08-28');
@@ -72,10 +90,14 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('valid range shows the day count',
     (await page.textContent('#range-state')) === '22/8 → 28/8 · 7 days',
     await page.textContent('#range-state'));
-  await page.click('#save-range');
+  await page.click('#save-settings');
   await page.waitForTimeout(200);
   check('range is persisted', await page.evaluate(() =>
     JSON.parse(localStorage.getItem('tripspend.settings.v1')).tripEnd === '2026-08-28'));
+  check('one Save stores dates and accounts together', await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('tripspend.settings.v1'));
+    return s.tripStart === '2026-08-22' && s.accounts[0] === 'Donald' && s.accounts[1] === 'Kwan';
+  }));
 
   section('date strip');
   await page.click('.tab[data-view="add"]');
@@ -241,7 +263,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   section('renaming an account migrates its records');
   await page.click('.tab[data-view="settings"]');
   await page.fill('#set-acct-0', 'Don');
-  await page.click('#save-accounts');
+  await page.click('#save-settings');
   await page.waitForTimeout(250);
   const migrated = await page.evaluate(() => ({
     entries: JSON.parse(localStorage.getItem('tripspend.entries.v1')).map((e) => e.account),

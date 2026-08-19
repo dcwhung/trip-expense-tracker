@@ -97,8 +97,11 @@
 CSV · JSON · 純文字摘要 · Import JSON · 上次備份時間 · 清除所有資料
 
 ### Settings
-- **Trip dates** — start / end，即時驗證同顯示日數；存檔後如果有紀錄落喺 range 外會出提示
-- **Accounts** — 兩個名，改名會**同步更新所有現有紀錄同 top-up**
+冇 label title，一律用 placeholder；`<input type="date">` 唔支援 placeholder，所以用 `start → end` 同一行 + 落面條狀態行表達。
+
+- **Trip dates** — start / end 同一行，即時驗證同顯示日數
+- **Accounts** — 兩個名（placeholder `Account 1` / `Account 2`），改名會**同步更新所有現有紀錄同 top-up**
+- **一個 Save 掣**存晒全部。錯誤已經 inline 即時顯示，所以按 Save 唔會再彈同一句 toast —— 有錯就靜靜哋唔存
 
 ---
 

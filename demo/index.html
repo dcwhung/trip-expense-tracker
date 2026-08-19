@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trip Spend Demo</title>
+<meta name="description" content="Offline trip expense tracker">
+<meta name="theme-color" content="#0F3D2E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Trip Spend Demo">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="banner" class="banner" hidden>
+  <div class="banner-text">Not backed up today</div>
+  <button id="banner-backup" class="banner-btn" type="button">Copy all</button>
+  <button id="banner-close" class="banner-x" type="button" aria-label="Dismiss">&times;</button>
+</div>
+
+<main>
+
+  <!-- ───────────── Add ───────────── -->
+  <section id="view-add" class="view">
+    <h1 class="screen-title" id="add-title">Expense</h1>
+
+    <form id="entry-form" novalidate>
+      <div class="field">
+        <span class="label">Date <em id="day-badge"></em></span>
+        <div id="date-strip" class="date-strip"></div>
+        <input id="date-picker" type="date" aria-label="Pick any date" hidden>
+      </div>
+
+      <div class="field" id="field-category">
+        <span class="label">Category</span>
+        <div id="cat-grid" class="grid grid-3"></div>
+      </div>
+
+      <label class="field amount-field">
+        <span class="label">Amount</span>
+        <div class="amount-row">
+          <span class="cur" id="cur-symbol">€</span>
+          <input id="amount" type="text" inputmode="decimal" autocomplete="off"
+                 autocorrect="off" spellcheck="false" placeholder="0.00">
+        </div>
+      </label>
+
+      <div class="field" id="field-payment">
+        <span class="label">Payment</span>
+        <div id="pay-grid" class="grid grid-3 seg"></div>
+      </div>
+
+      <div class="field" id="field-account">
+        <span class="label">Account</span>
+        <div id="acct-grid" class="grid grid-2 seg"></div>
+      </div>
+
+      <label class="field" id="field-description">
+        <span class="label">Description <em>optional</em></span>
+        <input id="description" type="text" autocomplete="off"
+               placeholder="Merchant — leave blank for card, fill from statement later">
+      </label>
+
+      <label class="field" id="field-remarks">
+        <span class="label">Remarks <em>optional</em></span>
+        <textarea id="remarks" rows="2" placeholder="Notes"></textarea>
+      </label>
+
+      <div class="actions">
+        <button id="submit-btn" class="btn btn-primary" type="submit">Save</button>
+        <button id="delete-btn" class="btn btn-danger" type="button" hidden>Delete</button>
+        <button id="cancel-btn" class="btn btn-ghost" type="button" hidden>Cancel</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ───────────── Records ───────────── -->
+  <section id="view-list" class="view" hidden>
+    <h1 class="screen-title">Records</h1>
+    <div class="summary">
+      <div class="summary-cols">
+        <div class="summary-col">
+          <div class="summary-key">Budget left</div>
+          <div class="summary-val" id="sum-left">€0.00</div>
+        </div>
+        <div class="summary-col summary-col-end">
+          <div class="summary-key">Spent</div>
+          <div class="summary-val is-debit-on-dark" id="sum-total">€0.00</div>
+        </div>
+      </div>
+      <div class="summary-day" id="sum-day"></div>
+    </div>
+
+
+    <div class="section-head">Budget left</div>
+    <div id="budget-cards" class="budget-cards"></div>
+
+    <div id="topup-list-wrap" hidden>
+      <div class="section-head section-head-row">
+        <span>Top-ups</span>
+        <span id="topup-total" class="section-total"></span>
+      </div>
+      <div id="topup-list"></div>
+    </div>
+
+    <div class="section-head">Expenses</div>
+    <div id="list"></div>
+  </section>
+
+  <!-- ───────────── Statistics ───────────── -->
+  <section id="view-stats" class="view" hidden>
+    <h1 class="screen-title">Statistics</h1>
+    <div id="stats-body"></div>
+  </section>
+
+  <!-- ───────────── Export ───────────── -->
+  <section id="view-export" class="view" hidden>
+    <h1 class="screen-title">Export</h1>
+
+    <div class="card">
+      <div class="card-title">Export</div>
+      <button class="btn btn-primary block" type="button" data-export="csv">CSV (Excel / Numbers)</button>
+      <button class="btn block" type="button" data-export="json">JSON full backup</button>
+      <button class="btn block" type="button" data-export="text">Copy text summary</button>
+      <p class="hint">CSV columns: Account, Date, Payment, Description, <span class="cur-code">EUR</span>, Category, Remarks — UTF-8 BOM, ISO dates. Top-ups are not expenses and are not included.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Backup</div>
+      <div class="backup-state" id="backup-state">Never backed up</div>
+      <button class="btn btn-primary block" type="button" id="backup-now">Copy all JSON to clipboard</button>
+      <p class="hint">Paste it into Apple Notes or mail it to yourself. This data lives only on this phone.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Restore</div>
+      <textarea id="import-box" rows="3" placeholder="Paste a JSON backup here"></textarea>
+      <button class="btn block" type="button" id="import-btn">Import JSON (replaces everything)</button>
+    </div>
+
+    <div class="card danger-card">
+      <div class="card-title">Danger zone</div>
+      <p class="hint">Type <code>DELETE</code> to enable. No undo.</p>
+      <input id="wipe-confirm" type="text" autocomplete="off" autocapitalize="characters" placeholder="DELETE">
+      <button class="btn btn-danger block" type="button" id="wipe-btn" disabled>Erase all data</button>
+    </div>
+
+    <p class="version">Trip Spend · <span id="trip-label"></span></p>
+  </section>
+
+  <!-- ───────────── Settings ───────────── -->
+  <section id="view-settings" class="view" hidden>
+    <h1 class="screen-title">Settings</h1>
+
+    <div class="card">
+      <div class="card-title">Trip dates</div>
+      <div class="date-range-row">
+        <span class="date-field">
+          <input id="set-start" type="date" aria-label="Trip start date">
+          <span class="date-ph" aria-hidden="true">DD/MM/YYYY</span>
+        </span>
+        <span class="range-arrow" aria-hidden="true">→</span>
+        <span class="date-field">
+          <input id="set-end" type="date" aria-label="Trip end date">
+          <span class="date-ph" aria-hidden="true">DD/MM/YYYY</span>
+        </span>
+      </div>
+      <div id="range-state" class="state-line tint-warn">Not set</div>
+      <p class="hint" id="range-warning" hidden></p>
+    </div>
+
+    <div class="card" id="accounts-card">
+      <div class="card-title">Accounts</div>
+      <input id="set-acct-0" class="stack-input" type="text" placeholder="Account 1"
+             autocomplete="off" maxlength="24" aria-label="First account name">
+      <input id="set-acct-1" class="stack-input" type="text" placeholder="Account 2"
+             autocomplete="off" maxlength="24" aria-label="Second account name">
+      <div id="accounts-state" class="state-line tint-warn" hidden></div>
+      <p class="hint">Leave both blank to keep everything in one pot — account names then disappear from the rest of the app. Renaming an account updates every existing entry and top-up.</p>
+    </div>
+
+    <button class="btn btn-primary block" type="button" id="save-settings">Save</button>
+
+    <div class="card danger-card" id="reset-card" hidden>
+      <div class="card-title">Reset</div>
+      <p class="hint">Clears the trip dates, the account names, and <strong>every entry and top-up</strong>. Type <code>RESET</code> to enable. No undo.</p>
+      <input id="reset-confirm" type="text" autocomplete="off" autocapitalize="characters" placeholder="RESET">
+      <button class="btn btn-danger block" type="button" id="reset-settings" disabled>Reset All</button>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabbar">
+  <button class="tab" type="button" data-view="add"><span>＋</span>Expense</button>
+  <button class="tab" type="button" data-view="list"><span>≡</span>Records</button>
+  <button class="tab" type="button" data-view="stats"><span class="tab-ico"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="0.8" y="16.4" width="4.6" height="6.8" rx="0.5"/><rect x="6.9" y="12.6" width="4.6" height="10.6" rx="0.5"/><rect x="13" y="15" width="4.6" height="8.2" rx="0.5"/><rect x="19.1" y="10.8" width="4.6" height="12.4" rx="0.5"/><path d="M1.4 11.8 8.6 4.6l4.9 4.4 5.6-5.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.1 0.8h7.1v7.1z"/></svg></span>Stats</button>
+  <button class="tab" type="button" data-view="export"><span>↥</span>Export</button>
+  <button class="tab" type="button" data-view="settings"><span>⚙</span>Settings</button>
+</nav>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-inner">
+    <div class="sheet-head">
+      <strong id="sheet-title">Text</strong>
+      <button id="sheet-close" class="btn btn-ghost" type="button">Close</button>
+    </div>
+    <p class="hint">Select all and copy, or use the button.</p>
+    <button id="sheet-copy" class="btn btn-primary block" type="button">Copy all</button>
+    <textarea id="sheet-text" readonly></textarea>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="demo-seed.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

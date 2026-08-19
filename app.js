@@ -540,7 +540,7 @@ function openEditTopup(id) {
 function renderList() {
   updateBanner();
   $('#sum-total').textContent = money(sum(entries));
-  $('#sum-meta').textContent = entries.length + (entries.length === 1 ? ' entry' : ' entries');
+  $('#sum-meta').textContent = money(sum(topups) - sum(entries)) + ' left';
 
   if (!tripConfigured()) {
     $('#sum-day').textContent = 'No trip dates set';
@@ -582,12 +582,13 @@ function renderBudgets() {
 
     const sub = document.createElement('div');
     sub.className = 'budget-sub';
-    [['Topped up', st.toppedUp], ['Spent', st.spent]].forEach((pair) => {
+    [['Topped up', st.toppedUp, false], ['Spent', -st.spent, true]].forEach((pair) => {
       const line = document.createElement('div');
       line.className = 'budget-line';
       const k = document.createElement('span');
       k.textContent = pair[0] + ':';
       const v = document.createElement('span');
+      if (pair[2]) v.className = 'is-debit';
       v.textContent = money(pair[1]);
       line.appendChild(k);
       line.appendChild(v);

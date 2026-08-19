@@ -170,7 +170,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
 
   section('budgets from top-ups');
   check('spend with no top-up shows label-first lines',
-    /Topped up:€0\.00/.test(await budget(0)) && /Spent:€17\.30/.test(await budget(0)),
+    /Topped up:€0\.00/.test(await budget(0)) && /Spent:-€17\.30/.test(await budget(0)),
     await budget(0));
   check('Donald starts negative on spend alone',
     (await budget(0)).includes('-€17.30'), await budget(0));
@@ -205,6 +205,19 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     (await page.textContent('#sum-total')) === '€47.30', await page.textContent('#sum-total'));
   check('the Top-ups section shows a running total',
     (await page.textContent('#topup-total')) === '+€500.00', await page.textContent('#topup-total'));
+  check('the summary reports what is left, not a row count',
+    (await page.textContent('#sum-meta')) === '€452.70 left', await page.textContent('#sum-meta'));
+  check('Spent on a budget card is negative and marked as a debit',
+    await page.evaluate(() => {
+      const lines = document.querySelectorAll('.budget-card .budget-line');
+      const spent = lines[1].querySelectorAll('span')[1];
+      return spent.textContent.startsWith('-') && spent.className.includes('is-debit');
+    }));
+  check('Topped up stays plain',
+    await page.evaluate(() => {
+      const v = document.querySelectorAll('.budget-card .budget-line')[0].querySelectorAll('span')[1];
+      return !v.textContent.startsWith('-') && !v.className.includes('is-debit');
+    }));
 
   check('expense rows carry no sign',
     !(await page.locator('#list .row-amt').first().textContent()).startsWith('-'),
@@ -331,7 +344,9 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(250);
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(150);
-  check('everything is gone', (await page.textContent('#sum-meta')) === '0 entries',
+  check('everything is gone', (await page.textContent('#sum-total')) === '€0.00',
+    await page.textContent('#sum-total'));
+  check('nothing left to spend either', (await page.textContent('#sum-meta')) === '€0.00 left',
     await page.textContent('#sum-meta'));
   check('top-up section hides when empty', await page.locator('#topup-list-wrap').isHidden());
 
@@ -341,8 +356,8 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(300);
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(200);
-  check('entries restored', (await page.textContent('#sum-meta')) === '4 entries',
-    await page.textContent('#sum-meta'));
+  check('entries restored', (await page.textContent('#sum-total')) === '€447.30',
+    await page.textContent('#sum-total'));
   check('spend total restored', (await page.textContent('#sum-total')) === '€447.30',
     await page.textContent('#sum-total'));
   check('top-up restored with it', (await budget(0)).includes('€82.70'), await budget(0));
@@ -456,7 +471,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(200);
   check('loads and keeps its data with the network off',
-    (await page.textContent('#sum-meta')) === '6 entries', await page.textContent('#sum-meta'));
+    (await page.textContent('#sum-total')) === '€709.64', await page.textContent('#sum-total'));
   await page.screenshot({ path: OUT + '/04-offline.png', fullPage: true });
   await ctx.setOffline(false);
 

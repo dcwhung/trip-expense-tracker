@@ -95,8 +95,8 @@
 **未設定 trip dates**：整個表單隱藏，出阻擋畫面 + `alert()`，有掣直接去 Settings。
 
 ### Records
-- 頂部：總支出 + 筆數 + `22/8 → 28/8 · 7 days · Day 3 of 7`
-- **Budget left** — 每個 account 一張卡：餘額大字，下面兩行 `Topped up: €500.00` / `Spent: €86.00`（英文字前、數字後）
+- 頂部：總支出 + **仲剩幾多錢**（`€414.00 left`，= 全部 top up − 全部支出）+ `22/8 → 28/8 · 7 days · Day 3 of 7`。**唔再顯示筆數**
+- **Budget left** — 每個 account 一張卡：餘額大字，下面兩行 `Topped up: €500.00` / `Spent: -€86.00`（英文字前、數字後；Spent 帶負號兼紅色）
   - **少過 €100 → 紅色**；**≥ €100 或者未扣過數 → 綠色**
 - **Top-ups** — 區標題右邊有**總數**：`+€500.00`、綠色。逐筆嘅金額**唔加正號、用一般字色**。撳一下開返表單改（金額 / 日期 / account），有 Update / Delete / Cancel，同 expense 一致
 - **Expenses** — 按日期由新到舊分組，每組 `Day N · 日期 · 小計`；撳一筆去編輯／刪除
@@ -186,6 +186,8 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 **Budget**
 - [ ] Top up €500 → Records 見到 €500 減去已使
 - [ ] 用到剩低過 €100 → 卡變紅
+- [ ] Summary 顯示 `€X left` 而唔係筆數，數目啱
+- [ ] Budget card 個 `Spent:` 有負號兼紅色
 - [ ] Top-ups 區標題右邊個總數啱數
 - [ ] Expense 逐筆冇符號；每日小計有負號兼紅色
 - [ ] Top-up 逐筆冇符號兼一般字色；區標題總數有加號兼綠色

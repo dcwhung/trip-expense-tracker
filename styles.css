@@ -306,6 +306,7 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 .budget-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
 .budget-line { display: flex; justify-content: space-between; gap: 8px; }
 .budget-line + .budget-line { margin-top: 2px; }
+.budget-line .is-debit { color: var(--danger); }
 
 
 /* ── settings ─────────────────────────────── */

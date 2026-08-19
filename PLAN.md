@@ -22,7 +22,7 @@
 | 9 | 純 vanilla HTML/CSS/JS，**零 build step、零 dependency** | |
 | 10 | 儲存：`localStorage`，金額用**整數分位** | |
 | 11 | 日期跟**裝置本地時間** | 之後喺日本／香港用都啱 |
-| 12 | 出發前已付嘅機票酒店 **唔入** app | |
+| 12 | 日期**唔受旅程範圍綁死** —— 出發前嘅 booking、departure 前嘅 top up 都入得 | 用 `Today` 掣 |
 | 13 | 換匯／增值 **唔當支出** | 用 Top up 處理 |
 
 ---
@@ -73,8 +73,9 @@
 
 ### Add
 1. **Date** — 橫向可 scroll 嘅日期掣，最前係 **Today**，之後按 trip range 每日一格，label 係 `24/8`
-   - **預設揀今日**；今日唔喺 range 就唔預揀，`Today` 掣亦會 disable（唔隱藏，免得條 strip 中途變形）
-   - 揀咗邊日就喺標題右邊顯示 `Day 3`；**未揀就唔顯示**
+   - `Today` **永遠揀得**，即使今日喺旅程之外 —— 出發前嘅 booking expense 同 top up 都要入得
+   - **預設揀今日**；今日唔喺 range 就唔預揀（要你主動撳）
+   - 標題右邊：範圍內顯示 `Day 3`，**範圍外顯示實際日期**（例如 `18/8`）；未揀就唔顯示
    - 儲存一筆之後**留喺同一日**，方便連續入
 2. **Category** — 3×2 icon grid，下面加一格**全闊虛線嘅 `Top Up`**
 3. **Amount** — `inputmode="decimal"`，逐個 keystroke 過濾，**最多兩位小數**
@@ -87,7 +88,7 @@
 - 淨低 Date / Amount / Account
 - 掣由 `Save` 變 `Confirm`
 - 確認完自動彈返做 expense 模式，留喺同一日
-- 因為共用 date strip，**top-up 嘅日期只揀得旅程範圍內嘅日子**
+- 共用同一條 date strip，所以 top-up 一樣可以用 `Today` 記喺出發前
 
 **未設定 trip dates**：整個表單隱藏，出阻擋畫面 + `alert()`，有掣直接去 Settings。
 
@@ -168,6 +169,8 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 **入數**
 - [ ] Date strip 有 `Today` + 7 個日子掣，scroll 得，揀咗顯示 `Day N`
 - [ ] 開 app 預設揀咗今日（今日喺 range 內）；撳 `Today` 跳返今日
+- [ ] **出發前**（今日喺 range 外）撳 `Today` → 揀得到，badge 顯示日期而唔係 `Day N`
+- [ ] 出發前入一筆 booking expense 同一筆 top up → 兩樣都入得，清單度嗰日冇 `Day` 標籤
 - [ ] 撳 `Top Up` → Payment / Description / Remarks 消失，掣變 `Confirm`；確認後彈返正常模式
 - [ ] 儲存後留喺同一日
 - [ ] 撳金額 → 鍵盤彈出 → **「Save」掣仍然睇到同撳到**
@@ -192,6 +195,7 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 ## 7. 已知並接受嘅取捨
 
 1. **冇 `Other` category** —— city tax、行李寄存、SIM 卡呢類要硬塞入六格之一
+   （旅程範圍外嘅紀錄照樣入得，只係喺清單度冇 `Day N` 標籤）
 2. **冇 `Accommodation` category**
 3. **固定兩個 account** —— 加減 account 要改 code
 4. **資料淨係喺一部電話** —— 冇雲端備份，靠 §4 嘅手動流程

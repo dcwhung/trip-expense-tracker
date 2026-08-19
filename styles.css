@@ -278,7 +278,6 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
   background: var(--green); border-color: var(--green); color: #fff;
 }
 .date-chip-today { font-size: 14px; }
-.date-chip:disabled { opacity: 0.4; }
 #day-badge:not(:empty) {
   font-style: normal; font-weight: 700; color: var(--accent); margin-left: 6px;
 }

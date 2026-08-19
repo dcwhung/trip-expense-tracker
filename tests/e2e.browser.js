@@ -108,8 +108,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     String(await page.locator('#date-strip .date-chip').count()));
   check('Today sits first', (await page.locator('#date-strip .date-chip').first()
     .textContent()) === 'Today');
-  check('Today is enabled while the trip is running',
-    !(await page.locator('#date-today').isDisabled()));
+  check('Today is enabled', !(await page.locator('#date-today').isDisabled()));
   check('labels read like 22/8',
     (await page.locator('#date-strip .date-chip[data-value]').first().textContent()) === '22/8');
   check("today inside the trip is preselected by default",
@@ -316,6 +315,71 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('saved as €12.34, not €12,345.00',
     (await page.textContent('#sum-total')) === '€459.64', await page.textContent('#sum-total'));
 
+  section('pre-trip bookings and top-ups');
+  const pre = await ctx.newPage();
+  const preErrors = [];
+  pre.on('pageerror', (e) => preErrors.push(e.message));
+  pre.on('dialog', (d) => d.accept());
+  await pre.addInitScript(() => {
+    const Real = Date;
+    const fixed = new Real('2026-08-18T10:00:00');   // four days before the trip
+    class FakeDate extends Real {
+      constructor(...a) { return a.length ? new Real(...a) : new Real(fixed); }
+      static now() { return fixed.getTime(); }
+    }
+    window.Date = FakeDate;
+  });
+  await pre.goto(URL, { waitUntil: 'networkidle' });
+  await pre.click('.tab[data-view="add"]');
+  await pre.waitForTimeout(250);
+
+  check('Today stays enabled before the trip starts',
+    !(await pre.locator('#date-today').isDisabled()));
+  check('nothing is preselected when today is outside the trip',
+    (await pre.locator('#date-strip .date-chip[aria-pressed="true"]').count()) === 0,
+    String(await pre.locator('#date-strip .date-chip[aria-pressed="true"]').count()));
+  check('no Day badge with nothing picked', (await pre.textContent('#day-badge')) === '');
+
+  await pre.click('#date-today');
+  await pre.waitForTimeout(150);
+  check('picking Today outside the trip shows the date instead of a Day number',
+    (await pre.textContent('#day-badge')) === '18/8', await pre.textContent('#day-badge'));
+
+  const beforeCount = await pre.evaluate(() =>
+    JSON.parse(localStorage.getItem('tripspend.entries.v1')).length);
+  await pre.fill('#amount', '250');
+  await pre.click('#cat-grid .chip[data-value="Transportation"]');
+  await pre.fill('#description', 'Flights');
+  await pre.click('#submit-btn');
+  await pre.waitForTimeout(250);
+  const booking = await pre.evaluate(() =>
+    JSON.parse(localStorage.getItem('tripspend.entries.v1')).find((e) => e.description === 'Flights'));
+  check('a pre-trip booking is logged on today’s date',
+    booking && booking.date === '2026-08-18' && booking.amountMinor === 25000,
+    JSON.stringify(booking));
+  check('it really is a new entry', await pre.evaluate((n) =>
+    JSON.parse(localStorage.getItem('tripspend.entries.v1')).length === n + 1, beforeCount));
+
+  await pre.click('#cat-grid .chip[data-value="__topup"]');
+  await pre.waitForTimeout(120);
+  await pre.click('#date-today');
+  await pre.fill('#amount', '300');
+  await pre.click('#submit-btn');
+  await pre.waitForTimeout(250);
+  const preTop = await pre.evaluate(() =>
+    JSON.parse(localStorage.getItem('tripspend.topups.v1')).find((t) => t.date === '2026-08-18'));
+  check('a top-up before departure is accepted',
+    preTop && preTop.amountMinor === 30000, JSON.stringify(preTop));
+
+  await pre.click('.tab[data-view="list"]');
+  await pre.waitForTimeout(250);
+  const headings = await pre.locator('#list .day-head').allTextContents();
+  check('the pre-trip day is listed without a Day number',
+    headings.some((h) => h.includes('2026-08-18') && !h.includes('Day ')),
+    JSON.stringify(headings));
+  check('no errors on the pre-trip page', preErrors.length === 0, preErrors.join('; '));
+  await pre.close();
+
   section('offline');
   await ctx.setOffline(true);
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -323,7 +387,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(200);
   check('loads and keeps its data with the network off',
-    (await page.textContent('#sum-meta')) === '5 entries', await page.textContent('#sum-meta'));
+    (await page.textContent('#sum-meta')) === '6 entries', await page.textContent('#sum-meta'));
   await page.screenshot({ path: OUT + '/04-offline.png', fullPage: true });
   await ctx.setOffline(false);
 

@@ -278,17 +278,16 @@ function renderDateStrip() {
   const host = $('#date-strip');
   host.innerHTML = '';
 
-  // Shortcut to the current day. Disabled rather than hidden when today
-  // falls outside the trip, so the strip does not change shape mid-trip.
+  // Shortcut to the current day, always available: bookings paid before the
+  // trip and top-ups done ahead of departure both need a date outside the
+  // strip's range.
   const today = localDate();
-  const todayInTrip = !!dayNumber(today);
   const jump = document.createElement('button');
   jump.type = 'button';
   jump.className = 'date-chip date-chip-today';
   jump.id = 'date-today';
   jump.textContent = 'Today';
-  jump.disabled = !todayInTrip;
-  jump.setAttribute('aria-pressed', String(todayInTrip && selectedDate === today));
+  jump.setAttribute('aria-pressed', String(selectedDate === today));
   jump.addEventListener('click', () => { selectDate(today); scrollSelectedIntoView(); });
   host.appendChild(jump);
 
@@ -317,8 +316,9 @@ function selectDate(iso) {
 }
 
 function updateDayBadge() {
+  if (!selectedDate) { $('#day-badge').textContent = ''; return; }
   const n = dayNumber(selectedDate);
-  $('#day-badge').textContent = n ? 'Day ' + n : '';
+  $('#day-badge').textContent = n ? 'Day ' + n : shortDate(selectedDate);
 }
 
 function scrollSelectedIntoView() {

@@ -87,10 +87,20 @@
   <section id="view-list" class="view" hidden>
     <h1 class="screen-title">Records</h1>
     <div class="summary">
-      <div class="summary-total" id="sum-total">€0.00</div>
-      <div class="summary-meta" id="sum-meta">0 entries</div>
+      <div class="summary-cols">
+        <div class="summary-col">
+          <div class="summary-key">Budget left</div>
+          <div class="summary-val" id="sum-left">€0.00</div>
+        </div>
+        <div class="summary-col summary-col-end">
+          <div class="summary-key">Spent</div>
+          <div class="summary-val is-debit-on-dark" id="sum-total">€0.00</div>
+        </div>
+      </div>
       <div class="summary-day" id="sum-day"></div>
     </div>
+
+    <button class="btn block" type="button" id="stats-open">Statistics</button>
 
     <div class="section-head">Budget left</div>
     <div id="budget-cards" class="budget-cards"></div>
@@ -178,6 +188,16 @@
   <button class="tab" type="button" data-view="export"><span>↥</span>Export</button>
   <button class="tab" type="button" data-view="settings"><span>⚙</span>Settings</button>
 </nav>
+
+<div id="stats-modal" class="sheet" hidden>
+  <div class="sheet-inner viz-root">
+    <div class="sheet-head">
+      <strong>Statistics</strong>
+      <button id="stats-close" class="btn btn-ghost" type="button">Close</button>
+    </div>
+    <div id="stats-body"></div>
+  </div>
+</div>
 
 <div id="sheet" class="sheet" hidden>
   <div class="sheet-inner">

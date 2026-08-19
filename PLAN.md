@@ -95,7 +95,8 @@
 **未設定 trip dates**：整個表單隱藏，出阻擋畫面 + `alert()`，有掣直接去 Settings。
 
 ### Records
-- 頂部：總支出 + **仲剩幾多錢**（`€414.00 left`，= 全部 top up − 全部支出）+ `22/8 → 28/8 · 7 days · Day 3 of 7`。**唔再顯示筆數**
+- 頂部 summary card：**左邊 `Budget left`**（= 全部 top up − 全部支出），**右邊 `Spent`**（帶負號、紅色）；下面 `22/8 → 28/8 · 7 days · Day 3 of 7`。**唔顯示筆數**
+- **Statistics** 掣 → modal，睇每個 category 嘅使費分佈（見 §3.5）
 - **Budget left** — 每個 account 一張卡：餘額大字，下面兩行 `Topped up: €500.00` / `Spent: -€86.00`（英文字前、數字後；Spent 帶負號兼紅色）
   - **少過 €100 → 紅色**；**≥ €100 或者未扣過數 → 綠色**
 - **Top-ups** — 區標題右邊有**總數**：`+€500.00`、綠色。逐筆嘅金額**唔加正號、用一般字色**。撳一下開返表單改（金額 / 日期 / account），有 Update / Delete / Cancel，同 expense 一致
@@ -116,7 +117,22 @@ CSV · JSON · 純文字摘要 · Import JSON · 上次備份時間 · 清除所
 
 ---
 
-## 3. Export 規格
+## 3.5 Statistics modal
+
+三樣嘢一齊出，等你可以直接比較：
+
+1. **橫向 bar chart**（按金額由大到細）—— 逐條直接標住金額同百分比
+2. **Donut chart** —— 中間顯示總支出，下面有 legend
+3. **數字表** —— category / 金額 / 百分比 / 總計
+
+**顏色跟返 category 本身，唔跟排名** —— 排序或者篩選都唔會令一個 category 換色。色板取自 data-viz reference palette，用佢個 validator 行過。
+
+### ⚠️ 已知色彩限制
+六色喺 **bar chart（相鄰比較）過晒 validator**，但喺 **donut（任何兩塊都可能對比）過唔到** —— 綠 vs 橙喺紅色盲眼中 ΔE 得 3.2（要求 ≥8），粉紅 vs 橙喺正常視力下 ΔE 12.9（要求 ≥15）。我試晒 8 個色槽入面所有 6 色組合，**冇一個喺兩個 mode 都過到 all-pairs**。
+
+所以 donut **唔可以淨靠顏色分辨**，一定要有 legend + 數字表撐住 —— 兩樣都做咗。呢個亦係點解 bar chart 排第一：佢共用同一條基線，close values 排得出高低，donut 靠角度就分唔到。
+
+## 4. Export 規格
 
 ### CSV
 ```
@@ -186,7 +202,8 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 **Budget**
 - [ ] Top up €500 → Records 見到 €500 減去已使
 - [ ] 用到剩低過 €100 → 卡變紅
-- [ ] Summary 顯示 `€X left` 而唔係筆數，數目啱
+- [ ] Summary card 左邊 `Budget left`、右邊 `Spent`（負號 + 紅色），兩個數都啱
+- [ ] 撳 `Statistics` 開到 modal，bar / donut / 表三樣數字一致；每個 category 顏色固定
 - [ ] Budget card 個 `Spent:` 有負號兼紅色
 - [ ] Top-ups 區標題右邊個總數啱數
 - [ ] Expense 逐筆冇符號；每日小計有負號兼紅色

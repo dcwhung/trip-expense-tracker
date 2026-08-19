@@ -159,7 +159,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
 
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(200);
-  check('total is €47.30', (await page.textContent('#sum-total')) === '€47.30',
+  check('spent reads -€47.30', (await page.textContent('#sum-total')) === '-€47.30',
     await page.textContent('#sum-total'));
   check('day head carries Day 3',
     (await page.textContent('#list .day-head')).includes('Day 3'),
@@ -202,11 +202,15 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('Kwan is untouched by Donald’s top-up',
     (await budget(1)).includes('-€30.00'), await budget(1));
   check('spend total still excludes the top-up',
-    (await page.textContent('#sum-total')) === '€47.30', await page.textContent('#sum-total'));
+    (await page.textContent('#sum-total')) === '-€47.30', await page.textContent('#sum-total'));
   check('the Top-ups section shows a running total',
     (await page.textContent('#topup-total')) === '+€500.00', await page.textContent('#topup-total'));
-  check('the summary reports what is left, not a row count',
-    (await page.textContent('#sum-meta')) === '€452.70 left', await page.textContent('#sum-meta'));
+  check('the summary reports budget left on the left',
+    (await page.textContent('#sum-left')) === '€452.70', await page.textContent('#sum-left'));
+  check('and spent as a red negative on the right',
+    (await page.textContent('#sum-total')) === '-€47.30' &&
+    (await page.locator('#sum-total').getAttribute('class')).includes('is-debit-on-dark'),
+    await page.textContent('#sum-total'));
   check('Spent on a budget card is negative and marked as a debit',
     await page.evaluate(() => {
       const lines = document.querySelectorAll('.budget-card .budget-line');
@@ -231,8 +235,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     const el = document.querySelector('#topup-list .row-amt');
     return el && !el.textContent.startsWith('+') && !el.className.includes('is-credit');
   }));
-  check('the headline total stays positive',
-    !(await page.textContent('#sum-total')).startsWith('-'));
+
 
 
 
@@ -346,8 +349,8 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(150);
   check('everything is gone', (await page.textContent('#sum-total')) === '€0.00',
     await page.textContent('#sum-total'));
-  check('nothing left to spend either', (await page.textContent('#sum-meta')) === '€0.00 left',
-    await page.textContent('#sum-meta'));
+  check('nothing left to spend either', (await page.textContent('#sum-left')) === '€0.00',
+    await page.textContent('#sum-left'));
   check('top-up section hides when empty', await page.locator('#topup-list-wrap').isHidden());
 
   await page.click('.tab[data-view="export"]');
@@ -356,10 +359,10 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(300);
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(200);
-  check('entries restored', (await page.textContent('#sum-total')) === '€447.30',
+  check('spend total restored', (await page.textContent('#sum-total')) === '-€447.30',
     await page.textContent('#sum-total'));
-  check('spend total restored', (await page.textContent('#sum-total')) === '€447.30',
-    await page.textContent('#sum-total'));
+  check('budget left restored alongside it',
+    (await page.textContent('#sum-left')) === '€52.70', await page.textContent('#sum-left'));
   check('top-up restored with it', (await budget(0)).includes('€82.70'), await budget(0));
   const enzo = await page.evaluate(() =>
     JSON.parse(localStorage.getItem('tripspend.entries.v1'))
@@ -397,7 +400,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(150);
   check('saved as €12.34, not €12,345.00',
-    (await page.textContent('#sum-total')) === '€459.64', await page.textContent('#sum-total'));
+    (await page.textContent('#sum-total')) === '-€459.64', await page.textContent('#sum-total'));
 
   section('pre-trip bookings and top-ups');
   const pre = await ctx.newPage();
@@ -471,7 +474,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.click('.tab[data-view="list"]');
   await page.waitForTimeout(200);
   check('loads and keeps its data with the network off',
-    (await page.textContent('#sum-total')) === '€709.64', await page.textContent('#sum-total'));
+    (await page.textContent('#sum-total')) === '-€709.64', await page.textContent('#sum-total'));
   await page.screenshot({ path: OUT + '/04-offline.png', fullPage: true });
   await ctx.setOffline(false);
 
@@ -509,6 +512,59 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   // than a fixed name.
   check('it falls back to the category line instead',
     labels.some((t) => /^Food · \S+ · Global Money$/.test(t)), JSON.stringify(labels));
+
+  section('statistics');
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(200);
+  await page.click('#stats-open');
+  await page.waitForTimeout(250);
+  check('the statistics modal opens', !(await page.locator('#stats-modal').isHidden()));
+
+  const catsWithSpend = await page.evaluate(() => {
+    const seen = new Set();
+    JSON.parse(localStorage.getItem('tripspend.entries.v1')).forEach((e) => seen.add(e.category));
+    return seen.size;
+  });
+  check('one bar per category that has spend',
+    (await page.locator('#stats-body .bar-row').count()) === catsWithSpend,
+    (await page.locator('#stats-body .bar-row').count()) + ' vs ' + catsWithSpend);
+  check('the donut has the same number of segments',
+    (await page.locator('#stats-body .donut circle').count()) === catsWithSpend);
+  check('a legend labels every slice',
+    (await page.locator('#stats-body .legend-item').count()) === catsWithSpend);
+  check('a table view carries the exact figures',
+    (await page.locator('#stats-body .viz-table tr').count()) === catsWithSpend + 2);
+
+  check('bars are sorted largest first', await page.evaluate(() => {
+    const w = Array.from(document.querySelectorAll('#stats-body .bar-fill'))
+      .map((el) => parseFloat(el.style.width));
+    return w.every((v, i) => i === 0 || w[i - 1] >= v);
+  }));
+  check('the largest bar is full width', await page.evaluate(() =>
+    parseFloat(document.querySelector('#stats-body .bar-fill').style.width) === 100));
+
+  // Colour follows the category, not its position in the sorted list.
+  check('each category keeps its own fixed colour', await page.evaluate(() => {
+    const want = { Food: 'rgb(235, 104, 52)', Shopping: 'rgb(232, 123, 164)' };
+    const rows = Array.from(document.querySelectorAll('#stats-body .bar-row'));
+    return Object.keys(want).every((cat) => {
+      const row = rows.find((r) => r.querySelector('.bar-name').textContent.includes(cat));
+      return row && row.querySelector('.bar-fill').style.background === want[cat];
+    });
+  }));
+
+  check('donut shares are the same figures as the table', await page.evaluate(() => {
+    const legend = Array.from(document.querySelectorAll('#stats-body .legend-value'))
+      .map((el) => el.textContent);
+    const table = Array.from(document.querySelectorAll('#stats-body .viz-table tr'))
+      .slice(1, -1).map((tr) => Math.round(parseFloat(tr.children[2].textContent)) + '%');
+    return legend.length === table.length && legend.every((v, i) => v === table[i]);
+  }));
+
+  await page.screenshot({ path: OUT + '/05-stats.png', fullPage: true });
+  await page.click('#stats-close');
+  await page.waitForTimeout(200);
+  check('the modal closes', await page.locator('#stats-modal').isHidden());
 
   check('no page errors', errors.length === 0, errors.join('; '));
   console.log('\n' + pass + ' passed, ' + fail + ' failed\n');

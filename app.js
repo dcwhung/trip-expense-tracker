@@ -18,6 +18,18 @@ const CATEGORIES = [
   { key: 'Kids',           ico: '🧸' },
 ];
 const PAYMENTS = ['Global Money', 'Cash', 'Credit Card'];
+
+// One fixed colour slot per category, in category order, so a filter or a
+// re-sort never repaints a series. Light/dark steps come from the data-viz
+// reference palette and were run through its validator.
+const CATEGORY_COLORS = {
+  Transportation: { light: '#2a78d6', dark: '#3987e5' },
+  Food:           { light: '#eb6834', dark: '#d95926' },
+  Household:      { light: '#1baf7a', dark: '#199e70' },
+  Entertainment:  { light: '#eda100', dark: '#c98500' },
+  Shopping:       { light: '#e87ba4', dark: '#d55181' },
+  Kids:           { light: '#008300', dark: '#008300' },
+};
 const DEFAULT_ACCOUNTS = ['Donald', 'Kwan'];
 
 const K = {
@@ -539,8 +551,8 @@ function openEditTopup(id) {
 
 function renderList() {
   updateBanner();
-  $('#sum-total').textContent = money(sum(entries));
-  $('#sum-meta').textContent = money(sum(topups) - sum(entries)) + ' left';
+  $('#sum-left').textContent = money(sum(topups) - sum(entries));
+  $('#sum-total').textContent = money(-sum(entries));
 
   if (!tripConfigured()) {
     $('#sum-day').textContent = 'No trip dates set';
@@ -711,6 +723,158 @@ function renderExpenses() {
       host.appendChild(row);
     });
   });
+}
+
+/* ── statistics ─────────────────────────────────────────── */
+
+function categoryTotals() {
+  const totals = CATEGORIES.map((c) => ({
+    key: c.key,
+    ico: c.ico,
+    amount: sum(entries.filter((e) => e.category === c.key)),
+  })).filter((r) => r.amount > 0);
+  const total = totals.reduce((t, r) => t + r.amount, 0);
+  totals.forEach((r) => { r.pct = total ? (r.amount / total) * 100 : 0; });
+  return { rows: totals.slice().sort((a, b) => b.amount - a.amount), total: total };
+}
+
+const cssVar = (name) => getComputedStyle(document.documentElement)
+  .getPropertyValue(name).trim();
+
+function categoryColor(key) {
+  const pair = CATEGORY_COLORS[key];
+  if (!pair) return cssVar('--muted');
+  return document.body.dataset.mode === 'dark' ? pair.dark : pair.light;
+}
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+// Horizontal bars: the form that actually answers "which category cost most".
+function buildBars(data) {
+  const wrap = el('div', 'viz-block');
+  wrap.appendChild(el('h3', 'viz-title', 'By category — bars'));
+  const max = data.rows[0] ? data.rows[0].amount : 1;
+
+  data.rows.forEach((r) => {
+    const row = el('div', 'bar-row');
+    const head = el('div', 'bar-head');
+    head.appendChild(el('span', 'bar-name', r.ico + '  ' + r.key));
+    head.appendChild(el('span', 'bar-value', money(r.amount) + '  ·  ' + r.pct.toFixed(0) + '%'));
+    const track = el('div', 'bar-track');
+    const fill = el('div', 'bar-fill');
+    fill.style.width = Math.max(2, (r.amount / max) * 100) + '%';
+    fill.style.background = categoryColor(r.key);
+    track.appendChild(fill);
+    row.appendChild(head);
+    row.appendChild(track);
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+
+// Donut: part-to-whole at a glance. Slices are ordered by size so neighbours
+// around the ring are the palette's adjacent pairs.
+function buildDonut(data) {
+  const wrap = el('div', 'viz-block');
+  wrap.appendChild(el('h3', 'viz-title', 'Share of spend — donut'));
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('class', 'donut');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Share of spend by category');
+
+  let offset = 0;
+  const GAP = 0.8;   // ~2px of surface between segments at this radius
+  data.rows.forEach((r) => {
+    const seg = document.createElementNS(NS, 'circle');
+    seg.setAttribute('cx', '50');
+    seg.setAttribute('cy', '50');
+    seg.setAttribute('r', '40');
+    seg.setAttribute('fill', 'none');
+    seg.setAttribute('pathLength', '100');
+    seg.setAttribute('stroke', categoryColor(r.key));
+    seg.setAttribute('stroke-width', '16');
+    const len = Math.max(0, r.pct - GAP);
+    seg.setAttribute('stroke-dasharray', len + ' ' + (100 - len));
+    seg.setAttribute('stroke-dashoffset', String(-offset));
+    seg.setAttribute('transform', 'rotate(-90 50 50)');
+    svg.appendChild(seg);
+    offset += r.pct;
+  });
+
+  const centre = el('div', 'donut-centre');
+  centre.appendChild(el('div', 'donut-total', money(data.total)));
+  centre.appendChild(el('div', 'donut-label', 'total spend'));
+
+  const stage = el('div', 'donut-stage');
+  stage.appendChild(svg);
+  stage.appendChild(centre);
+  wrap.appendChild(stage);
+
+  // Identity is never carried by colour alone.
+  const legend = el('div', 'legend');
+  data.rows.forEach((r) => {
+    const item = el('div', 'legend-item');
+    const dot = el('span', 'legend-dot');
+    dot.style.background = categoryColor(r.key);
+    item.appendChild(dot);
+    item.appendChild(el('span', 'legend-name', r.key));
+    item.appendChild(el('span', 'legend-value', r.pct.toFixed(0) + '%'));
+    legend.appendChild(item);
+  });
+  wrap.appendChild(legend);
+  return wrap;
+}
+
+function buildTable(data) {
+  const wrap = el('div', 'viz-block');
+  wrap.appendChild(el('h3', 'viz-title', 'Exact figures'));
+  const table = el('table', 'viz-table');
+  const head = el('tr');
+  ['Category', 'Amount', 'Share'].forEach((h) => head.appendChild(el('th', null, h)));
+  table.appendChild(head);
+  data.rows.forEach((r) => {
+    const tr = el('tr');
+    tr.appendChild(el('td', null, r.key));
+    tr.appendChild(el('td', 'num', money(r.amount)));
+    tr.appendChild(el('td', 'num', r.pct.toFixed(1) + '%'));
+    table.appendChild(tr);
+  });
+  const foot = el('tr', 'viz-total-row');
+  foot.appendChild(el('td', null, 'Total'));
+  foot.appendChild(el('td', 'num', money(data.total)));
+  foot.appendChild(el('td', 'num', '100%'));
+  table.appendChild(foot);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function openStats() {
+  const body = $('#stats-body');
+  body.innerHTML = '';
+  const data = categoryTotals();
+
+  if (!data.rows.length) {
+    body.appendChild(el('div', 'empty-state', 'Nothing logged yet.'));
+  } else {
+    body.appendChild(buildBars(data));
+    body.appendChild(buildDonut(data));
+    body.appendChild(buildTable(data));
+    const note = el('p', 'hint');
+    note.textContent = 'The bars answer "which cost most" — lengths share a ' +
+      'baseline, so close values are easy to rank. The donut answers "how is ' +
+      'the trip split" but slice angles are hard to compare, so it leans on ' +
+      'the labels.';
+    body.appendChild(note);
+  }
+  $('#stats-modal').hidden = false;
 }
 
 /* ── settings ───────────────────────────────────────────── */
@@ -1103,7 +1267,15 @@ function wireAmountField(el) {
 
 /* ── wiring ─────────────────────────────────────────────── */
 
+function trackColorScheme() {
+  const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  const apply = () => { document.body.dataset.mode = (mq && mq.matches) ? 'dark' : 'light'; };
+  if (mq && mq.addEventListener) mq.addEventListener('change', apply);
+  apply();
+}
+
 function init() {
+  trackColorScheme();
   $('#cur-symbol').textContent = CURRENCY.symbol;
 
   buildChips($('#cat-grid'), CATEGORIES.concat([
@@ -1152,6 +1324,9 @@ function init() {
     $('#wipe-btn').disabled = ev.target.value.trim().toUpperCase() !== 'DELETE';
   });
   $('#wipe-btn').addEventListener('click', runWipe);
+
+  $('#stats-open').addEventListener('click', openStats);
+  $('#stats-close').addEventListener('click', () => { $('#stats-modal').hidden = true; });
 
   $('#sheet-close').addEventListener('click', () => { $('#sheet').hidden = true; });
   $('#sheet-copy').addEventListener('click', async () => {

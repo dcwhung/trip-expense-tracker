@@ -799,6 +799,116 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     (await page.textContent('#topup-total')) === '+€1,800.00',
     await page.textContent('#topup-total'));
 
+  section('account state machine');
+  const seedAccounts = async (accounts) => {
+    await page.evaluate((acc) => {
+      localStorage.setItem('tripspend.settings.v1', JSON.stringify(
+        { tripStart: '2026-08-18', tripEnd: '2026-08-23', accounts: acc }));
+      localStorage.setItem('tripspend.entries.v1', JSON.stringify([
+        { id: 'a', date: '2026-08-19', amountMinor: 1000, currency: 'EUR', account: 'Donald',
+          payment: 'Cash', category: 'Food', description: 'D', remarks: '',
+          createdAt: '2026-08-19T10:00:00Z' },
+        { id: 'b', date: '2026-08-19', amountMinor: 2000, currency: 'EUR', account: 'Kwan',
+          payment: 'Cash', category: 'Food', description: 'K', remarks: '',
+          createdAt: '2026-08-19T11:00:00Z' },
+      ]));
+      localStorage.setItem('tripspend.topups.v1', JSON.stringify([
+        { id: 'x', date: '2026-08-19', amountMinor: 50000, currency: 'EUR', account: 'Donald',
+          createdAt: '2026-08-19T09:00:00Z' },
+        { id: 'y', date: '2026-08-19', amountMinor: 60000, currency: 'EUR', account: 'Kwan',
+          createdAt: '2026-08-19T09:30:00Z' },
+      ]));
+    }, accounts);
+    await page.reload({ waitUntil: 'networkidle' });
+  };
+  const owners = () => page.evaluate(() => ({
+    names: JSON.parse(localStorage.getItem('tripspend.settings.v1')).accounts,
+    e: JSON.parse(localStorage.getItem('tripspend.entries.v1')).map((x) => x.account),
+    t: JSON.parse(localStorage.getItem('tripspend.topups.v1')).map((x) => x.account),
+  }));
+  const saveNames = async (a0, a1) => {
+    await page.click('.tab[data-view="settings"]');
+    await page.waitForTimeout(200);
+    await page.fill('#set-acct-0', a0);
+    await page.fill('#set-acct-1', a1);
+    await page.waitForTimeout(150);
+    dialogs.length = 0;
+    await page.click('#save-settings');
+    await page.waitForTimeout(350);
+  };
+
+  await seedAccounts(['Donald', 'Kwan']);
+  await saveNames('Don', 'Kwan');
+  let st = await owners();
+  check('rename carries its records over',
+    st.e.join() === 'Don,Kwan' && st.t.join() === 'Don,Kwan', JSON.stringify(st));
+  check('a rename needs no confirmation', dialogs.length === 0, JSON.stringify(dialogs));
+
+  await seedAccounts(['Donald', 'Kwan']);
+  await saveNames('Kwan', 'Donald');
+  st = await owners();
+  check('swapping two names swaps their records',
+    st.e.join() === 'Kwan,Donald' && st.t.join() === 'Kwan,Donald', JSON.stringify(st));
+
+  await seedAccounts(['Donald', 'Kwan']);
+  await saveNames('Donald', '');
+  st = await owners();
+  check('clearing the second name merges into the first',
+    st.e.every((a) => a === 'Donald') && st.t.every((a) => a === 'Donald'), JSON.stringify(st));
+  check('and it asks first, naming what moves',
+    dialogs.some((d) => /Kwan/.test(d.message) && /1 entry and 1 top-up/.test(d.message)),
+    JSON.stringify(dialogs.map((d) => d.message)));
+
+  await seedAccounts(['Donald', 'Kwan']);
+  await saveNames('', 'Kwan');
+  st = await owners();
+  check('clearing the first name merges into whichever survives',
+    st.e.every((a) => a === 'Kwan') && st.t.every((a) => a === 'Kwan'), JSON.stringify(st));
+
+  await seedAccounts(['Donald', 'Kwan']);
+  await saveNames('', '');
+  st = await owners();
+  check('clearing both returns everything to the unnamed pot',
+    st.e.every((a) => a === '') && st.t.every((a) => a === ''), JSON.stringify(st));
+
+  await page.evaluate(() => {
+    localStorage.setItem('tripspend.settings.v1', JSON.stringify(
+      { tripStart: '2026-08-18', tripEnd: '2026-08-23', accounts: ['Donald', 'Kwan'] }));
+    localStorage.setItem('tripspend.entries.v1', JSON.stringify([
+      { id: 'a', date: '2026-08-19', amountMinor: 1000, currency: 'EUR', account: 'Donald',
+        payment: 'Cash', category: 'Food', description: 'D', remarks: '',
+        createdAt: '2026-08-19T10:00:00Z' }]));
+    localStorage.setItem('tripspend.topups.v1', JSON.stringify([]));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await saveNames('Donald', '');
+  check('clearing an unused name asks nothing', dialogs.length === 0,
+    JSON.stringify(dialogs.map((d) => d.message)));
+
+  section('import refuses unknown accounts');
+  await seedAccounts(['Donald', 'Kwan']);
+  await page.click('.tab[data-view="export"]');
+  await page.waitForTimeout(200);
+  const beforeImport = await owners();
+  await page.fill('#import-box', JSON.stringify({
+    schemaVersion: 2,
+    settings: { tripStart: '2026-08-18', tripEnd: '2026-08-23', accounts: ['Donald', ''] },
+    entries: [{ id: 'z', date: '2026-08-19', amountMinor: 500, currency: 'EUR',
+      account: 'Mallory', payment: 'Cash', category: 'Food', description: '', remarks: '',
+      createdAt: '2026-08-19T12:00:00Z' }],
+    topups: [],
+  }));
+  dialogs.length = 0;
+  await page.click('#import-btn');
+  await page.waitForTimeout(250);
+  check('it names the offending account in an error toast',
+    (await page.locator('#toast').getAttribute('class')).includes('tint-error') &&
+    /Mallory/.test(await page.textContent('#toast')),
+    await page.textContent('#toast'));
+  check('and never asks to confirm', dialogs.length === 0);
+  check('nothing was written', JSON.stringify(await owners()) === JSON.stringify(beforeImport));
+  await page.fill('#import-box', '');
+
   check('no page errors', errors.length === 0, errors.join('; '));
   console.log('\n' + pass + ' passed, ' + fail + ' failed\n');
   await browser.close();

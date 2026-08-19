@@ -42,7 +42,24 @@
 
 單 pot 模式下 budget **合晒全部紀錄嚟計**，唔理每筆本身存住咩 account label。所以清走 account 名之後，舊資料唔會唔見咗。
 
-**由單 pot 轉去具名 account**：未有名之前入嘅紀錄 `account` 係空字串，如果唔理佢哋，改完名之後就會**兩邊唔到岸** —— 唔計入任何一張 budget card，但又照計入區標題總數。所以只要有任何一個 account 有名，空 account 嘅紀錄就會**自動歸入第一個 account**。呢個補正喺存 Settings、import、同埋每次開 app 三個時機都會行一次，所以舊資料開一開 app 就自動修好。
+### Account 狀態機
+
+**不變量：只要有任何一個 account 有名，每一筆紀錄都必須屬於某個有名嘅 account。**
+`account: ""` 只喺「一個名都未有」嘅世界先合法。
+
+| 轉換 | 紀錄點變 |
+|---|---|
+| 零個名 → 有名 | 全部 `""` 收編去**第一個有名嘅 account** |
+| 改名 `Donald → Don` | 紀錄**跟住個名走** |
+| 兩個名對調 | 一樣跟住個名走 —— 兩邊嘅數真係調轉 |
+| 清走一個名（仲有一個）| 佢名下嘅紀錄**併入仲喺度嗰個**，唔理係 slot 1 定 slot 2 |
+| 兩個名清晒 | 全部變返 `""`，退返單 pot 世界 |
+| 開 app / import 撞到「有名但紀錄係 `""`」| **自動修**，收編去第一個有名嘅 account |
+
+兩道閘：
+
+- **清名前彈 confirm**，講明幾多筆會併去邊 —— 因為打返個名**唔會**令佢哋走返出嚟。冇紀錄要搬就唔彈。
+- **Import 遇到一個當前 trip 冇嘅 account 名 → 整份拒絕**，出 error toast，一筆都唔寫入。
 
 ### Expense — `tripspend.entries.v1`
 ```js
@@ -200,6 +217,11 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 - [ ] 未設定日期時：撳 Expense → 出 alert，**畫面留喺 Settings**；Records / Stats / Export 三個 tab 唔見；Settings 只有 Trip dates 一張卡
 - [ ] 存咗日期之後，三個 tab、Accounts 卡同 Reset 掣即刻出現（唔使切走再切返）
 - [ ] Account 兩個都唔填 → Expense 冇 Account 揀掣，Records 冇 account 名，得一張 budget card
+- [ ] 改名 → 舊紀錄全部跟住新名；唔會彈 confirm
+- [ ] 清走一個名 → 彈 confirm 講明幾多筆併去邊；確認後嗰啲紀錄真係轉咗會籍
+- [ ] 清走一個從來冇用過嘅名 → 唔彈 confirm
+- [ ] 兩個名清晒 → 退返單 pot，紀錄變返無主
+- [ ] Import 一份寫住陌生 account 名嘅 backup → 出紅色 error toast，資料一筆都冇變
 - [ ] 只填一個都係當單 pot；填夠兩個先出返 Account 揀掣
 - [ ] Reset All：唔打 `RESET` 撳唔到；打咗再 confirm 之後，**日期、account、全部紀錄同 top-up 一次過清晒**，三個 tab 收埋
 - [ ] Reset 之後個確認欄自動清空，唔會留住 `RESET` 令個掣一直着住

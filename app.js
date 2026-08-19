@@ -211,20 +211,10 @@ function datesOf(list) {
 /* ── budgets ────────────────────────────────────────────── */
 
 function accountStats(name) {
-  const mine = (r) => (multiAccount() ? r.account === name : true);
+  const mine = (r) => r.account === name;
   const toppedUp = sum(topups.filter(mine));
   const spent = sum(entries.filter(mine));
   return { toppedUp: toppedUp, spent: spent, left: toppedUp - spent, hasSpend: spent > 0 };
-}
-
-// Records can sit with no account after a name is cleared. They still count
-// toward the totals, so they get their own card rather than disappearing.
-const hasUnassigned = () =>
-  entries.some((e) => !e.account) || topups.some((t) => !t.account);
-
-function budgetOwners() {
-  const names = activeAccounts();
-  return (multiAccount() && hasUnassigned()) ? names.concat(['']) : names;
 }
 
 // Green until money has actually been deducted and the balance drops
@@ -611,7 +601,7 @@ function renderList() {
 function renderBudgets() {
   const host = $('#budget-cards');
   host.innerHTML = '';
-  const owners = budgetOwners();
+  const owners = activeAccounts();
   host.classList.toggle('is-single', owners.length === 1);
   owners.forEach((name) => {
     const st = accountStats(name);
@@ -623,7 +613,7 @@ function renderBudgets() {
     if (owners.length > 1) {
       const who = document.createElement('span');
       who.className = 'budget-name';
-      who.textContent = name || 'Unassigned';
+      who.textContent = name;
       top.appendChild(who);
     }
     const left = document.createElement('span');
@@ -902,21 +892,38 @@ function backfillEmptyAccounts() {
   return touched;
 }
 
-// Renaming a slot carries its records over; clearing a slot releases them —
-// they become unassigned rather than silently joining someone else's budget.
+// Which names disappear under `next`, and what they take with them.
+function clearedAccounts(next) {
+  const gone = [];
+  settings.accounts.forEach((old, i) => { if (old && !next[i]) gone.push(old); });
+  return gone;
+}
+
+function absorbCount(next) {
+  const gone = clearedAccounts(next);
+  if (!gone.length) return null;
+  const hit = (r) => gone.indexOf(r.account) >= 0;
+  const e = entries.filter(hit).length;
+  const t = topups.filter(hit).length;
+  if (!e && !t) return null;
+  return { names: gone, entries: e, topups: t, survivor: next.filter(Boolean)[0] || '' };
+}
+
+// Renaming a slot carries its records over. Clearing a slot merges them into
+// whichever name is left — a record never sits outside a named account while
+// any account is named.
 function applyAccountEdits(next) {
+  const survivor = next.filter(Boolean)[0] || '';
   const rename = {};
-  const cleared = [];
+  const gone = clearedAccounts(next);
   settings.accounts.forEach((old, i) => {
-    if (!old) return;
-    if (next[i] && old !== next[i]) rename[old] = next[i];
-    else if (!next[i]) cleared.push(old);
+    if (old && next[i] && old !== next[i]) rename[old] = next[i];
   });
-  if (!Object.keys(rename).length && !cleared.length) return false;
+  if (!Object.keys(rename).length && !gone.length) return false;
 
   const remap = (r) => {
     if (rename[r.account]) r.account = rename[r.account];
-    else if (cleared.indexOf(r.account) >= 0) r.account = '';
+    else if (gone.indexOf(r.account) >= 0) r.account = survivor;
   };
   entries.forEach(remap);
   topups.forEach(remap);
@@ -935,12 +942,24 @@ function saveAllSettings() {
   if (updateRangeState() || updateAccountsState()) return;
 
   const names = accountFieldValues();
-  // Records logged before any account was named belong to whoever is named
-  // first. Once names exist, an empty account means unassigned and stays so.
-  const hadNames = settings.accounts.some(Boolean);
+
+  // Merging records into another account cannot be undone by typing the old
+  // name back, so it is worth a stop — but only when records actually move.
+  const merge = absorbCount(names);
+  if (merge) {
+    const what = [];
+    if (merge.entries) what.push(merge.entries + (merge.entries === 1 ? ' entry' : ' entries'));
+    if (merge.topups) what.push(merge.topups + (merge.topups === 1 ? ' top-up' : ' top-ups'));
+    const dest = merge.survivor
+      ? 'be merged into ' + merge.survivor
+      : 'no longer belong to any account';
+    if (!confirm(merge.names.join(' and ') + ': ' + what.join(' and ') + ' will ' + dest +
+                 '.\n\nTyping the name back will not bring them out again. Continue?')) return;
+  }
+
   applyAccountEdits(names);
   settings.accounts = names;
-  if (!hadNames) backfillEmptyAccounts();
+  backfillEmptyAccounts();
   settings.tripStart = $('#set-start').value;
   settings.tripEnd = $('#set-end').value;
   if (!saveSettings()) return;
@@ -1044,10 +1063,9 @@ function toText() {
   if (topups.length) {
     out.push('');
     out.push('Budget left');
-    const owners = budgetOwners();
-    owners.forEach((name) => {
+    activeAccounts().forEach((name) => {
       const st = accountStats(name);
-      out.push('  ' + (owners.length > 1 ? (name || 'Unassigned') + ' ' : '') + money(st.left) +
+      out.push('  ' + (multiAccount() ? name + ' ' : '') + money(st.left) +
         ' (' + money(st.toppedUp) + ' topped up, ' + money(st.spent) + ' spent)');
     });
   }
@@ -1168,8 +1186,7 @@ function cleanEntry(e) {
     date: e.date,
     amountMinor: Math.round(e.amountMinor),
     currency: e.currency || CURRENCY.code,
-    account: (!multiAccount() || activeAccounts().indexOf(e.account) >= 0)
-      ? (e.account || '') : activeAccounts()[0],
+    account: String(e.account == null ? '' : e.account).trim(),
     payment: PAYMENTS.indexOf(e.payment) >= 0 ? e.payment : PAYMENTS[0],
     category: catOf(e.category) ? e.category : CATEGORIES[0].key,
     description: e.description || '',
@@ -1195,6 +1212,21 @@ function runImport() {
   const cleanTopups = (Array.isArray(data.topups) ? data.topups : []).filter(valid);
 
   if (!cleanEntries.length && !cleanTopups.length) { toast('That backup has no usable records', 'error'); return; }
+
+  // Validate before touching anything: a record naming an account the trip
+  // will not have would land outside every budget card.
+  const incomingSettings = data.settings ? normaliseSettings(data.settings) : settings;
+  const known = incomingSettings.accounts.filter(Boolean);
+  const unknown = [];
+  cleanEntries.concat(cleanTopups).forEach((r) => {
+    const a = String(r.account == null ? '' : r.account).trim();
+    if (a && known.indexOf(a) < 0 && unknown.indexOf(a) < 0) unknown.push(a);
+  });
+  if (unknown.length) {
+    toast('Backup names accounts this trip does not have: ' + unknown.join(', '), 'error');
+    return;
+  }
+
   if (!confirm('Import ' + cleanEntries.length + ' entries and ' + cleanTopups.length +
                ' top-ups, replacing everything here?')) return;
 
@@ -1212,12 +1244,12 @@ function runImport() {
     date: t.date,
     amountMinor: Math.round(t.amountMinor),
     currency: t.currency || CURRENCY.code,
-    account: (!multiAccount() || activeAccounts().indexOf(t.account) >= 0)
-      ? (t.account || '') : activeAccounts()[0],
+    account: String(t.account == null ? '' : t.account).trim(),
     createdAt: t.createdAt || new Date().toISOString(),
   }));
   saveEntries();
   saveTopups();
+  backfillEmptyAccounts();
 
   $('#import-box').value = '';
   buildChips($('#acct-grid'), activeAccounts().map((k) => ({ key: k })));
@@ -1338,6 +1370,9 @@ function init() {
   buildChips($('#pay-grid'), PAYMENTS.map((k) => ({ key: k })));
 
   if (activeAccounts().indexOf(sticky.account) < 0) sticky.account = activeAccounts()[0];
+
+  // "Named accounts exist but a record has none" is not a legal state.
+  backfillEmptyAccounts();
   if (PAYMENTS.indexOf(sticky.payment) < 0) sticky.payment = PAYMENTS[0];
 
   wireAmountField($('#amount'));

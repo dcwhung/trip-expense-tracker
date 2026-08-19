@@ -58,7 +58,7 @@ function writeKey(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
     return true;
   } catch (e) {
-    toast('Could not save — storage full? Export a backup now.');
+    toast('Could not save — storage full? Export a backup now.', 'error');
     return false;
   }
 }
@@ -286,7 +286,7 @@ function switchView(name) {
   // Without a trip range there is nowhere useful to go but Settings, and
   // bouncing the user to a dead Expense screen only makes them tap back.
   if (!tripConfigured() && name !== 'settings') {
-    if (name === 'add') toast('Set your trip dates in Settings first');
+    if (name === 'add') toast('Set your trip dates in Settings first', 'warn');
     name = 'settings';
   }
   VIEWS.forEach((v) => { $('#view-' + v).hidden = (v !== name); });
@@ -407,13 +407,13 @@ function onSubmit(ev) {
   ev.preventDefault();
   if (mode === 'topup') { submitTopup(); return; }
 
-  if (!selectedDate) { toast('Pick a date'); return; }
+  if (!selectedDate) { toast('Pick a date', 'warn'); return; }
 
   const amountMinor = parseAmount($('#amount').value);
-  if (amountMinor == null) { toast('That amount is not valid'); $('#amount').focus(); return; }
+  if (amountMinor == null) { toast('That amount is not valid', 'error'); $('#amount').focus(); return; }
 
   const category = getChip($('#cat-grid'));
-  if (!category) { toast('Pick a category'); return; }
+  if (!category) { toast('Pick a category', 'warn'); return; }
 
   const account = multiAccount()
     ? (getChip($('#acct-grid')) || activeAccounts()[0])
@@ -511,9 +511,9 @@ function setMode(next) {
 }
 
 function submitTopup() {
-  if (!selectedDate) { toast('Pick a date'); return; }
+  if (!selectedDate) { toast('Pick a date', 'warn'); return; }
   const amountMinor = parseAmount($('#amount').value);
-  if (amountMinor == null || amountMinor <= 0) { toast('That amount is not valid'); return; }
+  if (amountMinor == null || amountMinor <= 0) { toast('That amount is not valid', 'error'); return; }
   const account = multiAccount()
     ? (getChip($('#acct-grid')) || activeAccounts()[0])
     : activeAccounts()[0];
@@ -1069,7 +1069,7 @@ function exportBaseName() {
 }
 
 async function runExport(kind) {
-  if (!entries.length) { toast('Nothing logged yet'); return; }
+  if (!entries.length) { toast('Nothing logged yet', 'warn'); return; }
 
   if (kind === 'text') {
     const text = toText();
@@ -1098,7 +1098,7 @@ function markBackedUp() {
 }
 
 async function backupNow() {
-  if (!entries.length && !topups.length) { toast('Nothing logged yet'); return; }
+  if (!entries.length && !topups.length) { toast('Nothing logged yet', 'warn'); return; }
   const text = toJSON();
   if (await copyText(text)) {
     markBackedUp();
@@ -1142,20 +1142,20 @@ function cleanEntry(e) {
 
 function runImport() {
   const raw = $('#import-box').value.trim();
-  if (!raw) { toast('Paste a backup first'); return; }
+  if (!raw) { toast('Paste a backup first', 'warn'); return; }
 
   let data;
   try { data = JSON.parse(raw); }
-  catch (e) { toast('That is not valid JSON'); return; }
+  catch (e) { toast('That is not valid JSON', 'error'); return; }
 
   const incoming = Array.isArray(data) ? data : (data && data.entries);
-  if (!Array.isArray(incoming)) { toast('No entries found in that backup'); return; }
+  if (!Array.isArray(incoming)) { toast('No entries found in that backup', 'error'); return; }
 
   const valid = (x) => x && typeof x.date === 'string' && Number.isFinite(x.amountMinor);
   const cleanEntries = incoming.filter(valid);
   const cleanTopups = (Array.isArray(data.topups) ? data.topups : []).filter(valid);
 
-  if (!cleanEntries.length && !cleanTopups.length) { toast('That backup has no usable records'); return; }
+  if (!cleanEntries.length && !cleanTopups.length) { toast('That backup has no usable records', 'error'); return; }
   if (!confirm('Import ' + cleanEntries.length + ' entries and ' + cleanTopups.length +
                ' top-ups, replacing everything here?')) return;
 
@@ -1222,10 +1222,15 @@ function showSheet(title, text) {
   $('#sheet').hidden = false;
 }
 
+const TOAST_ICON = { success: '✅', warn: '⚠️', error: '⛔' };
+
 let toastTimer = null;
-function toast(msg) {
+// kind: 'success' (default) | 'warn' | 'error'
+function toast(msg, kind) {
+  const k = TOAST_ICON[kind] ? kind : 'success';
   const el = $('#toast');
-  el.textContent = msg;
+  el.className = 'toast toast-' + k;
+  el.textContent = TOAST_ICON[k] + '  ' + msg;
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 2200);
@@ -1321,7 +1326,8 @@ function init() {
   $('#sheet-close').addEventListener('click', () => { $('#sheet').hidden = true; });
   $('#sheet-copy').addEventListener('click', async () => {
     const ok = await copyText($('#sheet-text').value);
-    toast(ok ? 'Copied' : 'Could not copy — select the text instead');
+    if (ok) toast('Copied');
+    else toast('Could not copy — select the text instead', 'error');
   });
 
   updateTabVisibility();

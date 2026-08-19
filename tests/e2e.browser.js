@@ -51,6 +51,10 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     !(await page.locator('#toast').isHidden()) &&
     /trip dates/.test(await page.textContent('#toast')),
     await page.textContent('#toast'));
+  check('and it is styled as a warning',
+    (await page.locator('#toast').getAttribute('class')).includes('toast-warn') &&
+    (await page.textContent('#toast')).startsWith('⚠️'),
+    await page.textContent('#toast'));
   check('no alert dialog is used', !dialogs.some((d) => d.type === 'alert'),
     JSON.stringify(dialogs));
   check('and leaves you on Settings rather than a dead Expense screen',
@@ -388,6 +392,35 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('comma decimal 12,80 stored as 12.80', csv.includes(',12.80,'));
   check('top-ups are absent from the CSV', !csv.includes('500.00'));
   check('four expense rows only', csv.split('\r\n').filter(Boolean).length === 5);
+
+  section('toast kinds');
+  const toastNow = async () => ({
+    cls: await page.locator('#toast').getAttribute('class'),
+    text: await page.textContent('#toast'),
+  });
+
+  await page.waitForSelector('#toast', { state: 'hidden' });
+  await page.click('#import-btn');                       // nothing pasted
+  await page.waitForTimeout(150);
+  let t = await toastNow();
+  check('a warning is amber with ⚠️',
+    t.cls.includes('toast-warn') && t.text.startsWith('⚠️'), JSON.stringify(t));
+
+  await page.waitForSelector('#toast', { state: 'hidden' });
+  await page.fill('#import-box', 'not json at all');
+  await page.click('#import-btn');
+  await page.waitForTimeout(150);
+  t = await toastNow();
+  check('an error is red with ⛔',
+    t.cls.includes('toast-error') && t.text.startsWith('⛔'), JSON.stringify(t));
+  await page.fill('#import-box', '');
+
+  await page.waitForSelector('#toast', { state: 'hidden' });
+  await page.click('#backup-now');
+  await page.waitForTimeout(200);
+  t = await toastNow();
+  check('a success is green with ✅',
+    t.cls.includes('toast-success') && t.text.startsWith('✅'), JSON.stringify(t));
 
   section('wipe → import round trip');
   await page.fill('#wipe-confirm', 'DELETE');

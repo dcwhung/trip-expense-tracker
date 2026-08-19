@@ -100,6 +100,16 @@
 
 **App 入面冇 `alert()`** —— 所有提示一律用 toast，浮喺畫面正中，2.2 秒後自動消失。需要你答「係／唔係」嗰啲（刪除、import、Reset All）先用 `confirm()`。
 
+Toast 有三種：
+
+| 類型 | 圖示 | 底色 | 例子 |
+|---|---|---|---|
+| success | ✅ | 綠 `#1B7A4B` | `Added €12.50` · `Saved` · `Restored 4 entries` |
+| warn | ⚠️ | 橙 `#A15C00` | `Pick a category` · `Nothing logged yet` |
+| error | ⛔ | 紅 `#B3261E` | `That amount is not valid` · `That is not valid JSON` |
+
+三隻底色都用白字，對比度分別 5.3 / 5.2 / 6.5 : 1，兩個 mode 都夠。底色寫死唔跟主題，因為 toast 浮喺任何背景之上。
+
 ### Records
 - 頂部 summary card：**左邊 `Budget left`**（= 全部 top up − 全部支出），**右邊 `Spent`**（帶負號、紅色）；下面 `22/8 → 28/8 · 7 days · Day 3 of 7`。**唔顯示筆數**
 

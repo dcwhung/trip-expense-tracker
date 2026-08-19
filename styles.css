@@ -263,12 +263,17 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 #sheet-text { height: 42vh; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 
+/* Toasts float over either theme's surface, so their fills are fixed rather
+   than themed — white text on all three reads in light and dark alike. */
 .toast {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  z-index: 60; background: var(--text); color: var(--bg);
+  z-index: 60; color: #fff; background: #1B5C46;
   padding: 13px 20px; border-radius: 14px; font-size: 15px; font-weight: 600;
   max-width: 80vw; text-align: center; line-height: 1.35;
 }
+.toast-success { background: #1B7A4B; }
+.toast-warn    { background: #A15C00; }
+.toast-error   { background: #B3261E; }
 
 /* ── title row & pill ─────────────────────── */
 /* ── date strip ───────────────────────────── */

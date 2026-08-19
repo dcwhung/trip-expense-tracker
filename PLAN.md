@@ -97,7 +97,7 @@
 CSV · JSON · 純文字摘要 · Import JSON · 上次備份時間 · 清除所有資料
 
 ### Settings
-冇 label title，一律用 placeholder；`<input type="date">` 唔支援 placeholder，所以用 `start → end` 同一行 + 落面條狀態行表達。
+保留 card title（`Trip dates` / `Accounts`）作分區，但**冇欄位 label**，一律用 placeholder；`<input type="date">` 唔支援 placeholder，所以用 `start → end` 同一行 + 落面條狀態行表達。
 
 - **Trip dates** — start / end 同一行，即時驗證同顯示日數
 - **Accounts** — 兩個名（placeholder `Account 1` / `Account 2`），改名會**同步更新所有現有紀錄同 top-up**

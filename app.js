@@ -30,7 +30,6 @@ const CATEGORY_COLORS = {
   Shopping:       { light: '#e87ba4', dark: '#d55181' },
   Kids:           { light: '#008300', dark: '#008300' },
 };
-const DEFAULT_ACCOUNTS = ['Donald', 'Kwan'];
 
 const K = {
   entries:  'tripspend.entries.v1',
@@ -89,13 +88,22 @@ const saveSettings = () => writeKey(K.settings, settings);
 function normaliseSettings(raw) {
   const s = (raw && typeof raw === 'object') ? raw : {};
   const accounts = Array.isArray(s.accounts) ? s.accounts.slice(0, 2) : [];
-  while (accounts.length < 2) accounts.push(DEFAULT_ACCOUNTS[accounts.length]);
+  while (accounts.length < 2) accounts.push('');
   return {
     tripStart: typeof s.tripStart === 'string' ? s.tripStart : '',
     tripEnd: typeof s.tripEnd === 'string' ? s.tripEnd : '',
-    accounts: accounts.map((a, i) => String(a || DEFAULT_ACCOUNTS[i]).trim() || DEFAULT_ACCOUNTS[i]),
+    accounts: accounts.map((a) => String(a == null ? '' : a).trim()),
   };
 }
+
+// Naming accounts is optional. With none named — or only one — everything
+// lives in a single pot and account names vanish from the rest of the app.
+function activeAccounts() {
+  const named = settings.accounts.filter(Boolean);
+  return named.length ? named : [''];
+}
+
+const multiAccount = () => activeAccounts().length > 1;
 
 function uid() {
   if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -203,8 +211,9 @@ function datesOf(list) {
 /* ── budgets ────────────────────────────────────────────── */
 
 function accountStats(name) {
-  const toppedUp = sum(topups.filter((t) => t.account === name));
-  const spent = sum(entries.filter((e) => e.account === name));
+  const mine = (r) => (multiAccount() ? r.account === name : true);
+  const toppedUp = sum(topups.filter(mine));
+  const spent = sum(entries.filter(mine));
   return { toppedUp: toppedUp, spent: spent, left: toppedUp - spent, hasSpend: spent > 0 };
 }
 
@@ -263,7 +272,18 @@ const getChip = (host) => {
 
 const VIEWS = ['add', 'list', 'stats', 'export', 'settings'];
 
+const TRIP_ONLY_VIEWS = ['list', 'stats', 'export'];
+
+function updateTabVisibility() {
+  const ok = tripConfigured();
+  TRIP_ONLY_VIEWS.forEach((v) => {
+    const tab = document.querySelector('.tab[data-view="' + v + '"]');
+    if (tab) tab.hidden = !ok;
+  });
+}
+
 function switchView(name) {
+  if (!tripConfigured() && TRIP_ONLY_VIEWS.indexOf(name) >= 0) name = 'settings';
   VIEWS.forEach((v) => { $('#view-' + v).hidden = (v !== name); });
   document.querySelectorAll('.tab').forEach((t) => {
     t.setAttribute('aria-selected', String(t.dataset.view === name));
@@ -285,6 +305,7 @@ function renderAdd() {
   const ok = tripConfigured();
   $('#add-blocked').hidden = ok;
   $('#entry-form').hidden = !ok;
+  $('#field-account').hidden = !multiAccount();
   if (ok) renderDateStrip();
 }
 
@@ -397,7 +418,9 @@ function onSubmit(ev) {
   const category = getChip($('#cat-grid'));
   if (!category) { toast('Pick a category'); return; }
 
-  const account = getChip($('#acct-grid')) || settings.accounts[0];
+  const account = multiAccount()
+    ? (getChip($('#acct-grid')) || activeAccounts()[0])
+    : activeAccounts()[0];
   const payment = getChip($('#pay-grid')) || PAYMENTS[0];
   const description = $('#description').value.trim();
   const remarks = $('#remarks').value.trim();
@@ -494,7 +517,9 @@ function submitTopup() {
   if (!selectedDate) { toast('Pick a date'); return; }
   const amountMinor = parseAmount($('#amount').value);
   if (amountMinor == null || amountMinor <= 0) { toast('That amount is not valid'); return; }
-  const account = getChip($('#acct-grid')) || settings.accounts[0];
+  const account = multiAccount()
+    ? (getChip($('#acct-grid')) || activeAccounts()[0])
+    : activeAccounts()[0];
 
   if (editingTopupId) {
     const t = topups.find((x) => x.id === editingTopupId);
@@ -577,20 +602,24 @@ function renderList() {
 function renderBudgets() {
   const host = $('#budget-cards');
   host.innerHTML = '';
-  settings.accounts.forEach((name) => {
+  const names = activeAccounts();
+  host.classList.toggle('is-single', names.length === 1);
+  names.forEach((name) => {
     const st = accountStats(name);
     const card = document.createElement('div');
     card.className = 'budget-card ' + (balanceIsLow(st) ? 'is-low' : 'is-ok');
 
     const top = document.createElement('div');
     top.className = 'budget-top';
-    const who = document.createElement('span');
-    who.className = 'budget-name';
-    who.textContent = name;
+    if (multiAccount()) {
+      const who = document.createElement('span');
+      who.className = 'budget-name';
+      who.textContent = name;
+      top.appendChild(who);
+    }
     const left = document.createElement('span');
     left.className = 'budget-left';
     left.textContent = money(st.left);
-    top.appendChild(who);
     top.appendChild(left);
 
     const sub = document.createElement('div');
@@ -633,10 +662,10 @@ function renderTopupList() {
       main.className = 'row-main';
       const d = document.createElement('div');
       d.className = 'row-desc';
-      d.textContent = t.account;
+      d.textContent = multiAccount() ? t.account : 'Top-up';
       const s = document.createElement('div');
       s.className = 'row-sub';
-      s.textContent = 'Top-up · ' + t.date;
+      s.textContent = (multiAccount() ? 'Top-up · ' : '') + t.date;
       main.appendChild(d);
       main.appendChild(s);
 
@@ -696,7 +725,8 @@ function renderExpenses() {
       // back to the remarks. With neither, the category line simply moves up
       // rather than leaving a placeholder behind.
       const label = [e.description, e.remarks].filter(Boolean).join(' | ');
-      const meta = [e.category, e.account, e.payment].join(' · ');
+      const meta = [e.category, multiAccount() ? e.account : null, e.payment]
+        .filter(Boolean).join(' · ');
       if (label) {
         const d = document.createElement('div');
         d.className = 'row-desc';
@@ -802,6 +832,10 @@ function renderSettings() {
   $('#set-end').value = settings.tripEnd;
   $('#set-acct-0').value = settings.accounts[0];
   $('#set-acct-1').value = settings.accounts[1];
+  // Nothing but the dates until a trip exists — the rest has no meaning yet.
+  const ok = tripConfigured();
+  $('#accounts-card').hidden = !ok;
+  $('#reset-settings').hidden = !ok;
   updateRangeState();
   updateAccountsState();
 }
@@ -823,9 +857,12 @@ function updateRangeState() {
   return err;
 }
 
+// Names are optional; only a genuine clash is an error.
 function accountsError(names) {
-  if (!names[0] || !names[1]) return 'Both accounts need a name.';
-  if (names[0] === names[1]) return 'The two accounts need different names.';
+  const named = names.filter(Boolean);
+  if (named.length === 2 && named[0] === named[1]) {
+    return 'The two accounts need different names.';
+  }
   return '';
 }
 
@@ -841,8 +878,12 @@ function updateAccountsState() {
 const accountFieldValues = () => [$('#set-acct-0').value.trim(), $('#set-acct-1').value.trim()];
 
 function applyAccountRename(next) {
+  // Only a rename migrates records. Clearing a name is not a rename — those
+  // records keep their label and simply fold into the single pot.
   const rename = {};
-  settings.accounts.forEach((old, i) => { if (old !== next[i]) rename[old] = next[i]; });
+  settings.accounts.forEach((old, i) => {
+    if (old && next[i] && old !== next[i]) rename[old] = next[i];
+  });
   if (!Object.keys(rename).length) return false;
 
   entries.forEach((e) => { if (rename[e.account]) e.account = rename[e.account]; });
@@ -867,7 +908,12 @@ function saveAllSettings() {
   settings.tripEnd = $('#set-end').value;
   if (!saveSettings()) return;
 
-  if (renamed) buildChips($('#acct-grid'), settings.accounts.map((k) => ({ key: k })));
+  buildChips($('#acct-grid'), activeAccounts().map((k) => ({ key: k })));
+  if (activeAccounts().indexOf(sticky.account) < 0) {
+    sticky.account = activeAccounts()[0];
+    writeKey(K.sticky, sticky);
+  }
+  updateTabVisibility();
 
   // Entries logged outside the new range stay put, but they lose their Day
   // label — say so rather than letting it look like data went missing.
@@ -880,7 +926,24 @@ function saveAllSettings() {
   }
 
   resetForm();
+  renderSettings();   // first save unlocks the Accounts card and Reset
   toast('Saved');
+}
+
+function resetSettings() {
+  if (!confirm('Reset the trip dates and account names?\n\n' +
+               'Your entries and top-ups are kept — they reappear once you set ' +
+               'a trip range again.')) return;
+  settings = normaliseSettings(null);
+  if (!saveSettings()) return;
+  sticky.account = '';
+  writeKey(K.sticky, sticky);
+  buildChips($('#acct-grid'), activeAccounts().map((k) => ({ key: k })));
+  updateTabVisibility();
+  resetForm();
+  renderSettings();
+  switchView('settings');
+  toast('Reset');
 }
 
 /* ── exports ────────────────────────────────────────────── */
@@ -935,9 +998,9 @@ function toText() {
   if (topups.length) {
     out.push('');
     out.push('Budget left');
-    settings.accounts.forEach((name) => {
+    activeAccounts().forEach((name) => {
       const st = accountStats(name);
-      out.push('  ' + name + ' ' + money(st.left) +
+      out.push('  ' + (multiAccount() ? name + ' ' : '') + money(st.left) +
         ' (' + money(st.toppedUp) + ' topped up, ' + money(st.spent) + ' spent)');
     });
   }
@@ -1058,7 +1121,8 @@ function cleanEntry(e) {
     date: e.date,
     amountMinor: Math.round(e.amountMinor),
     currency: e.currency || CURRENCY.code,
-    account: settings.accounts.indexOf(e.account) >= 0 ? e.account : settings.accounts[0],
+    account: (!multiAccount() || activeAccounts().indexOf(e.account) >= 0)
+      ? (e.account || '') : activeAccounts()[0],
     payment: PAYMENTS.indexOf(e.payment) >= 0 ? e.payment : PAYMENTS[0],
     category: catOf(e.category) ? e.category : CATEGORIES[0].key,
     description: e.description || '',
@@ -1101,14 +1165,16 @@ function runImport() {
     date: t.date,
     amountMinor: Math.round(t.amountMinor),
     currency: t.currency || CURRENCY.code,
-    account: settings.accounts.indexOf(t.account) >= 0 ? t.account : settings.accounts[0],
+    account: (!multiAccount() || activeAccounts().indexOf(t.account) >= 0)
+      ? (t.account || '') : activeAccounts()[0],
     createdAt: t.createdAt || new Date().toISOString(),
   }));
   saveEntries();
   saveTopups();
 
   $('#import-box').value = '';
-  buildChips($('#acct-grid'), settings.accounts.map((k) => ({ key: k })));
+  buildChips($('#acct-grid'), activeAccounts().map((k) => ({ key: k })));
+  updateTabVisibility();
   resetForm();
   renderExport();
   toast('Restored ' + entries.length + ' entries');
@@ -1199,10 +1265,10 @@ function init() {
   buildChips($('#cat-grid'), CATEGORIES.concat([
     { key: TOPUP_KEY, ico: '💶', label: 'Top Up', wide: true },
   ]), { onPick: (key) => setMode(key === TOPUP_KEY ? 'topup' : 'expense') });
-  buildChips($('#acct-grid'), settings.accounts.map((k) => ({ key: k })));
+  buildChips($('#acct-grid'), activeAccounts().map((k) => ({ key: k })));
   buildChips($('#pay-grid'), PAYMENTS.map((k) => ({ key: k })));
 
-  if (settings.accounts.indexOf(sticky.account) < 0) sticky.account = settings.accounts[0];
+  if (activeAccounts().indexOf(sticky.account) < 0) sticky.account = activeAccounts()[0];
   if (PAYMENTS.indexOf(sticky.payment) < 0) sticky.payment = PAYMENTS[0];
 
   wireAmountField($('#amount'));
@@ -1225,6 +1291,7 @@ function init() {
   $('#set-acct-0').addEventListener('input', updateAccountsState);
   $('#set-acct-1').addEventListener('input', updateAccountsState);
   $('#save-settings').addEventListener('click', saveAllSettings);
+  $('#reset-settings').addEventListener('click', resetSettings);
 
   document.querySelectorAll('[data-export]').forEach((b) => {
     b.addEventListener('click', () => runExport(b.dataset.export));
@@ -1249,6 +1316,7 @@ function init() {
     toast(ok ? 'Copied' : 'Could not copy — select the text instead');
   });
 
+  updateTabVisibility();
   switchView(tripConfigured() ? 'add' : 'settings');
   updateBanner();
   trackKeyboard();

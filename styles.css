@@ -153,6 +153,7 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 .btn-primary { background: var(--green); border-color: var(--green); color: #fff; }
 .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn-warn { color: var(--danger); border-color: var(--danger); background: transparent; }
 .block { display: block; width: 100%; margin-bottom: 8px; }
 
 /* Save has to be reachable without scrolling past five sections — the whole
@@ -309,6 +310,7 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 .section-head-row { display: flex; justify-content: space-between; align-items: baseline; }
 .section-total { font-size: 15px; color: var(--ok); }
 .budget-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.budget-cards.is-single { grid-template-columns: 1fr; }
 .budget-card {
   background: var(--surface); border: 1px solid var(--line);
   border-left: 4px solid var(--line);

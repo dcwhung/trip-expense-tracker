@@ -34,9 +34,13 @@
 {
   tripStart: "2026-08-22",   // 空 = 未設定，入數版會被鎖
   tripEnd:   "2026-08-28",
-  accounts:  ["Donald", "Kwan"]   // 固定兩個，可改名
+  accounts:  ["", ""]        // 兩個位，**預設空白**，填名係 optional
 }
 ```
+
+**Account 係 optional**：填 0 個或者 1 個名 = **單 pot 模式** —— Expense 版唔顯示 Account 揀掣，Records 嘅 budget card、top-up、expense 逐項都唔顯示 account 名。填夠兩個先會出現。
+
+單 pot 模式下 budget **合晒全部紀錄嚟計**，唔理每筆本身存住咩 account label。所以清走 account 名之後，舊資料唔會唔見咗。
 
 ### Expense — `tripspend.entries.v1`
 ```js
@@ -112,8 +116,10 @@ CSV · JSON · 純文字摘要 · Import JSON · 上次備份時間 · 清除所
 保留 card title（`Trip dates` / `Accounts`）作分區，但**冇欄位 label**，一律用 placeholder；`<input type="date">` 唔支援 placeholder，所以用 `start → end` 同一行 + 落面條狀態行表達。
 
 - **Trip dates** — start / end 同一行，即時驗證同顯示日數
-- **Accounts** — 兩個名（placeholder `Account 1` / `Account 2`），改名會**同步更新所有現有紀錄同 top-up**
+- **Accounts** — 兩個名（placeholder `Account 1` / `Account 2`），**可以唔填**。改名會**同步更新所有現有紀錄同 top-up**；清走個名唔算改名，嗰啲紀錄保留原 label 但歸入單 pot
+- **Reset** 掣 —— 清走旅行日期同 account 名，**紀錄同 top-up 保留**，重新設定日期就見返
 - **一個 Save 掣**存晒全部。錯誤已經 inline 即時顯示，所以按 Save 唔會再彈同一句 toast —— 有錯就靜靜哋唔存
+- **未設定旅行日期之前，Settings 只顯示 Trip dates 一張卡**（Accounts 卡同 Reset 掣都收埋），而且 **Records / Stats / Export 三個 tab 都會隱藏** —— 冇日期嗰陣佢哋冇意義
 
 ---
 
@@ -175,7 +181,11 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 - [ ] 部機熄機重開 → 資料仲在
 
 **Settings**
-- [ ] 未設定日期時，撳 Add → 出 alert + 入唔到數
+- [ ] 未設定日期時：撳 Expense → 出 alert + 入唔到數；Records / Stats / Export 三個 tab 唔見；Settings 只有 Trip dates 一張卡
+- [ ] 存咗日期之後，三個 tab、Accounts 卡同 Reset 掣即刻出現（唔使切走再切返）
+- [ ] Account 兩個都唔填 → Expense 冇 Account 揀掣，Records 冇 account 名，得一張 budget card
+- [ ] 只填一個都係當單 pot；填夠兩個先出返 Account 揀掣
+- [ ] 撳 Reset → 日期同 account 清空、三個 tab 收埋，但**紀錄同 top-up 仲喺度**，重新設定日期就見返
 - [ ] End date 早過 start date → 有錯誤訊息，儲存唔到
 - [ ] 設定 22/8–28/8 → 顯示 `7 days`
 - [ ] 改 account 名 → 舊紀錄同 top-up 都跟住改

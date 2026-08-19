@@ -53,8 +53,20 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('a blocking notice is shown', !(await page.locator('#add-blocked').isHidden()));
 
 
-  section('trip date validation');
+  section('nothing but the dates before a trip exists');
   await page.click('.tab[data-view="settings"]');
+  await page.waitForTimeout(150);
+  check('the Accounts card is hidden', await page.locator('#accounts-card').isHidden());
+  check('Reset is hidden', await page.locator('#reset-settings').isHidden());
+  for (const v of ['list', 'stats', 'export']) {
+    check('the ' + v + ' tab is hidden',
+      await page.locator(`.tab[data-view="${v}"]`).isHidden());
+  }
+  check('Expense and Settings stay reachable',
+    !(await page.locator('.tab[data-view="add"]').isHidden()) &&
+    !(await page.locator('.tab[data-view="settings"]').isHidden()));
+
+  section('trip date validation');
   await page.fill('#set-start', '2026-08-28');
   await page.fill('#set-end', '2026-08-22');
   await page.waitForTimeout(120);
@@ -68,22 +80,6 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('Save does not repeat the message that is already on screen',
     await page.locator('#toast').isHidden());
 
-  await page.fill('#set-acct-0', '');
-  await page.waitForTimeout(120);
-  check('an empty account name is flagged inline',
-    !(await page.locator('#accounts-state').isHidden()) &&
-    /Both accounts need a name/.test(await page.textContent('#accounts-state')),
-    await page.textContent('#accounts-state'));
-  await page.fill('#set-acct-0', 'Kwan');
-  await page.waitForTimeout(120);
-  check('duplicate account names are flagged inline',
-    /different names/.test(await page.textContent('#accounts-state')),
-    await page.textContent('#accounts-state'));
-  await page.fill('#set-acct-0', 'Donald');
-  await page.waitForTimeout(120);
-  check('the inline account error clears once fixed',
-    await page.locator('#accounts-state').isHidden());
-
   await page.fill('#set-start', '2026-08-22');
   await page.fill('#set-end', '2026-08-28');
   await page.waitForTimeout(120);
@@ -94,10 +90,53 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(200);
   check('range is persisted', await page.evaluate(() =>
     JSON.parse(localStorage.getItem('tripspend.settings.v1')).tripEnd === '2026-08-28'));
-  check('one Save stores dates and accounts together', await page.evaluate(() => {
+  check('one Save stores the dates and leaves accounts unnamed', await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem('tripspend.settings.v1'));
-    return s.tripStart === '2026-08-22' && s.accounts[0] === 'Donald' && s.accounts[1] === 'Kwan';
+    return s.tripStart === '2026-08-22' && s.accounts[0] === '' && s.accounts[1] === '';
   }));
+  check('the rest of the app unlocks', await page.evaluate(() =>
+    ['list', 'stats', 'export'].every((v) =>
+      !document.querySelector(`.tab[data-view="${v}"]`).hidden)));
+  check('the Accounts card and Reset appear',
+    !(await page.locator('#accounts-card').isHidden()) &&
+    !(await page.locator('#reset-settings').isHidden()));
+
+  section('accounts are optional');
+  check('both name fields start empty',
+    (await page.inputValue('#set-acct-0')) === '' &&
+    (await page.inputValue('#set-acct-1')) === '');
+  await page.click('.tab[data-view="add"]');
+  await page.waitForTimeout(200);
+  check('with no names, the Account picker is hidden',
+    await page.locator('#field-account').isHidden());
+
+  await page.click('.tab[data-view="settings"]');
+  await page.fill('#set-acct-0', 'Donald');
+  await page.waitForTimeout(120);
+  check('one name alone is not an error', await page.locator('#accounts-state').isHidden());
+  await page.click('#save-settings');
+  await page.waitForTimeout(200);
+  await page.click('.tab[data-view="add"]');
+  await page.waitForTimeout(200);
+  check('one named account still hides the picker',
+    await page.locator('#field-account').isHidden());
+
+  await page.click('.tab[data-view="settings"]');
+  await page.fill('#set-acct-1', 'Donald');
+  await page.waitForTimeout(120);
+  check('duplicate names are flagged inline',
+    /different names/.test(await page.textContent('#accounts-state')),
+    await page.textContent('#accounts-state'));
+  await page.fill('#set-acct-1', 'Kwan');
+  await page.waitForTimeout(120);
+  check('the inline account error clears once fixed',
+    await page.locator('#accounts-state').isHidden());
+  await page.click('#save-settings');
+  await page.waitForTimeout(200);
+  await page.click('.tab[data-view="add"]');
+  await page.waitForTimeout(200);
+  check('two names bring the Account picker back',
+    !(await page.locator('#field-account').isHidden()));
 
   section('date strip');
   await page.click('.tab[data-view="add"]');
@@ -561,6 +600,72 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   }));
 
   await page.screenshot({ path: OUT + '/05-stats.png', fullPage: true });
+
+  section('reset');
+  const before = await page.evaluate(() => ({
+    entries: JSON.parse(localStorage.getItem('tripspend.entries.v1')).length,
+    topups: JSON.parse(localStorage.getItem('tripspend.topups.v1')).length,
+  }));
+  await page.click('.tab[data-view="settings"]');
+  await page.waitForTimeout(200);
+  await page.click('#reset-settings');
+  await page.waitForTimeout(300);
+
+  check('the trip dates are cleared', await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('tripspend.settings.v1'));
+    return !s.tripStart && !s.tripEnd && s.accounts.every((a) => a === '');
+  }));
+  check('it lands on Settings', (await visibleView()) === 'settings', await visibleView());
+  for (const v of ['list', 'stats', 'export']) {
+    check('the ' + v + ' tab is hidden again',
+      await page.locator(`.tab[data-view="${v}"]`).isHidden());
+  }
+  check('only the trip dates are on offer',
+    (await page.locator('#accounts-card').isHidden()) &&
+    (await page.locator('#reset-settings').isHidden()));
+  check('entries and top-ups survive the reset', await page.evaluate((b) => {
+    const e = JSON.parse(localStorage.getItem('tripspend.entries.v1')).length;
+    const t = JSON.parse(localStorage.getItem('tripspend.topups.v1')).length;
+    return e === b.entries && t === b.topups;
+  }, before));
+
+  section('single pot after a reset');
+  await page.fill('#set-start', '2026-08-22');
+  await page.fill('#set-end', '2026-08-28');
+  await page.click('#save-settings');
+  await page.waitForTimeout(250);
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(250);
+
+  check('the data is back', await page.evaluate((b) =>
+    document.querySelectorAll('#list .row').length === b.entries, before));
+  check('there is one budget card, not two',
+    (await page.locator('.budget-card').count()) === 1,
+    String(await page.locator('.budget-card').count()));
+  check('it carries no account name',
+    (await page.locator('.budget-card .budget-name').count()) === 0);
+  check('the single pot totals everything regardless of old labels',
+    await page.evaluate(() => {
+      const e = JSON.parse(localStorage.getItem('tripspend.entries.v1'))
+        .reduce((t, x) => t + x.amountMinor, 0);
+      const t = JSON.parse(localStorage.getItem('tripspend.topups.v1'))
+        .reduce((a, x) => a + x.amountMinor, 0);
+      const shown = document.querySelector('.budget-left').textContent;
+      const want = (t - e) / 100;
+      return shown === (want < 0 ? '-' : '') + '€' + Math.abs(want)
+        .toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }));
+  check('expense rows drop the account name', await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#list .row-sub'))
+      .every((el) => el.textContent.split(' · ').length === 2)));
+  check('a top-up row reads simply Top-up', await page.evaluate(() => {
+    const el = document.querySelector('#topup-list .row-desc');
+    return !el || el.textContent === 'Top-up';
+  }));
+  await page.click('.tab[data-view="add"]');
+  await page.waitForTimeout(200);
+  check('the Account picker stays hidden',
+    await page.locator('#field-account').isHidden());
 
   check('no page errors', errors.length === 0, errors.join('; '));
   console.log('\n' + pass + ' passed, ' + fail + ' failed\n');

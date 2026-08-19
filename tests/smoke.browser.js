@@ -27,7 +27,11 @@ const OUT = process.env.SHOT_DIR || '/tmp';
   await page.fill('#set-start', '2026-08-22');
   await page.fill('#set-end', '2026-08-28');
   await page.click('#save-settings');
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(250);
+  await page.fill('#set-acct-0', 'Donald');
+  await page.fill('#set-acct-1', 'Kwan');
+  await page.click('#save-settings');
+  await page.waitForTimeout(250);
   await page.screenshot({ path: OUT + '/04-settings.png', fullPage: true });
 
   await page.click('.tab[data-view="add"]');

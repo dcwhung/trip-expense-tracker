@@ -217,6 +217,16 @@ function accountStats(name) {
   return { toppedUp: toppedUp, spent: spent, left: toppedUp - spent, hasSpend: spent > 0 };
 }
 
+// Records can sit with no account after a name is cleared. They still count
+// toward the totals, so they get their own card rather than disappearing.
+const hasUnassigned = () =>
+  entries.some((e) => !e.account) || topups.some((t) => !t.account);
+
+function budgetOwners() {
+  const names = activeAccounts();
+  return (multiAccount() && hasUnassigned()) ? names.concat(['']) : names;
+}
+
 // Green until money has actually been deducted and the balance drops
 // under €100; red from there.
 const balanceIsLow = (st) => st.hasSpend && st.left < LOW_BALANCE_MINOR;
@@ -415,8 +425,9 @@ function onSubmit(ev) {
   const category = getChip($('#cat-grid'));
   if (!category) { toast('Pick a category', 'warn'); return; }
 
+  const existing = editingId ? entries.find((x) => x.id === editingId) : null;
   const account = multiAccount()
-    ? (getChip($('#acct-grid')) || activeAccounts()[0])
+    ? (getChip($('#acct-grid')) || (existing ? existing.account : activeAccounts()[0]))
     : activeAccounts()[0];
   const payment = getChip($('#pay-grid')) || PAYMENTS[0];
   const description = $('#description').value.trim();
@@ -424,7 +435,7 @@ function onSubmit(ev) {
   const now = new Date().toISOString();
 
   if (editingId) {
-    const e = entries.find((x) => x.id === editingId);
+    const e = existing;
     if (e) {
       Object.assign(e, { amountMinor: amountMinor, category: category, date: selectedDate,
                          account: account, payment: payment, description: description,
@@ -514,12 +525,13 @@ function submitTopup() {
   if (!selectedDate) { toast('Pick a date', 'warn'); return; }
   const amountMinor = parseAmount($('#amount').value);
   if (amountMinor == null || amountMinor <= 0) { toast('That amount is not valid', 'error'); return; }
+  const editingTop = editingTopupId ? topups.find((x) => x.id === editingTopupId) : null;
   const account = multiAccount()
-    ? (getChip($('#acct-grid')) || activeAccounts()[0])
+    ? (getChip($('#acct-grid')) || (editingTop ? editingTop.account : activeAccounts()[0]))
     : activeAccounts()[0];
 
   if (editingTopupId) {
-    const t = topups.find((x) => x.id === editingTopupId);
+    const t = editingTop;
     if (t) {
       Object.assign(t, { amountMinor: amountMinor, account: account, date: selectedDate,
                          updatedAt: new Date().toISOString() });
@@ -599,19 +611,19 @@ function renderList() {
 function renderBudgets() {
   const host = $('#budget-cards');
   host.innerHTML = '';
-  const names = activeAccounts();
-  host.classList.toggle('is-single', names.length === 1);
-  names.forEach((name) => {
+  const owners = budgetOwners();
+  host.classList.toggle('is-single', owners.length === 1);
+  owners.forEach((name) => {
     const st = accountStats(name);
     const card = document.createElement('div');
     card.className = 'budget-card ' + (balanceIsLow(st) ? 'is-low' : 'is-ok');
 
     const top = document.createElement('div');
     top.className = 'budget-top';
-    if (multiAccount()) {
+    if (owners.length > 1) {
       const who = document.createElement('span');
       who.className = 'budget-name';
-      who.textContent = name;
+      who.textContent = name || 'Unassigned';
       top.appendChild(who);
     }
     const left = document.createElement('span');
@@ -890,18 +902,26 @@ function backfillEmptyAccounts() {
   return touched;
 }
 
-function applyAccountRename(next) {
-  // Only a rename migrates records. Clearing a name is not a rename — those
-  // records keep their label and simply fold into the single pot.
+// Renaming a slot carries its records over; clearing a slot releases them —
+// they become unassigned rather than silently joining someone else's budget.
+function applyAccountEdits(next) {
   const rename = {};
+  const cleared = [];
   settings.accounts.forEach((old, i) => {
-    if (old && next[i] && old !== next[i]) rename[old] = next[i];
+    if (!old) return;
+    if (next[i] && old !== next[i]) rename[old] = next[i];
+    else if (!next[i]) cleared.push(old);
   });
-  if (!Object.keys(rename).length) return false;
+  if (!Object.keys(rename).length && !cleared.length) return false;
 
-  entries.forEach((e) => { if (rename[e.account]) e.account = rename[e.account]; });
-  topups.forEach((t) => { if (rename[t.account]) t.account = rename[t.account]; });
-  if (rename[sticky.account]) sticky.account = rename[sticky.account];
+  const remap = (r) => {
+    if (rename[r.account]) r.account = rename[r.account];
+    else if (cleared.indexOf(r.account) >= 0) r.account = '';
+  };
+  entries.forEach(remap);
+  topups.forEach(remap);
+  remap(sticky);
+
   saveEntries();
   saveTopups();
   writeKey(K.sticky, sticky);
@@ -915,9 +935,12 @@ function saveAllSettings() {
   if (updateRangeState() || updateAccountsState()) return;
 
   const names = accountFieldValues();
-  applyAccountRename(names);
+  // Records logged before any account was named belong to whoever is named
+  // first. Once names exist, an empty account means unassigned and stays so.
+  const hadNames = settings.accounts.some(Boolean);
+  applyAccountEdits(names);
   settings.accounts = names;
-  backfillEmptyAccounts();
+  if (!hadNames) backfillEmptyAccounts();
   settings.tripStart = $('#set-start').value;
   settings.tripEnd = $('#set-end').value;
   if (!saveSettings()) return;
@@ -1021,9 +1044,10 @@ function toText() {
   if (topups.length) {
     out.push('');
     out.push('Budget left');
-    activeAccounts().forEach((name) => {
+    const owners = budgetOwners();
+    owners.forEach((name) => {
       const st = accountStats(name);
-      out.push('  ' + (multiAccount() ? name + ' ' : '') + money(st.left) +
+      out.push('  ' + (owners.length > 1 ? (name || 'Unassigned') + ' ' : '') + money(st.left) +
         ' (' + money(st.toppedUp) + ' topped up, ' + money(st.spent) + ' spent)');
     });
   }
@@ -1194,7 +1218,6 @@ function runImport() {
   }));
   saveEntries();
   saveTopups();
-  backfillEmptyAccounts();
 
   $('#import-box').value = '';
   buildChips($('#acct-grid'), activeAccounts().map((k) => ({ key: k })));
@@ -1315,9 +1338,6 @@ function init() {
   buildChips($('#pay-grid'), PAYMENTS.map((k) => ({ key: k })));
 
   if (activeAccounts().indexOf(sticky.account) < 0) sticky.account = activeAccounts()[0];
-
-  // Heals data saved before the account names existed.
-  backfillEmptyAccounts();
   if (PAYMENTS.indexOf(sticky.payment) < 0) sticky.payment = PAYMENTS[0];
 
   wireAmountField($('#amount'));

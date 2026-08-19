@@ -47,10 +47,12 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   dialogs.length = 0;
   await page.click('.tab[data-view="add"]');
   await page.waitForTimeout(200);
-  check('tapping Add raises an alert', dialogs.some((d) => d.type === 'alert'),
+  check('tapping Expense raises an alert', dialogs.some((d) => d.type === 'alert'),
     JSON.stringify(dialogs));
-  check('the entry form is hidden', await page.locator('#entry-form').isHidden());
-  check('a blocking notice is shown', !(await page.locator('#add-blocked').isHidden()));
+  check('and leaves you on Settings rather than a dead Expense screen',
+    (await visibleView()) === 'settings', await visibleView());
+  check('there is no blocked-state panel any more',
+    (await page.locator('#add-blocked').count()) === 0);
 
 
   section('nothing but the dates before a trip exists');

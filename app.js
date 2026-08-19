@@ -283,15 +283,17 @@ function updateTabVisibility() {
 }
 
 function switchView(name) {
-  if (!tripConfigured() && TRIP_ONLY_VIEWS.indexOf(name) >= 0) name = 'settings';
+  // Without a trip range there is nowhere useful to go but Settings, and
+  // bouncing the user to a dead Expense screen only makes them tap back.
+  if (!tripConfigured() && name !== 'settings') {
+    if (name === 'add') alert('Set your trip dates in Settings first.');
+    name = 'settings';
+  }
   VIEWS.forEach((v) => { $('#view-' + v).hidden = (v !== name); });
   document.querySelectorAll('.tab').forEach((t) => {
     t.setAttribute('aria-selected', String(t.dataset.view === name));
   });
-  if (name === 'add') {
-    renderAdd();
-    if (!tripConfigured()) alert('Set your trip dates in Settings first.');
-  }
+  if (name === 'add') renderAdd();
   if (name === 'list') renderList();
   if (name === 'stats') renderStats();
   if (name === 'export') renderExport();
@@ -302,11 +304,8 @@ function switchView(name) {
 /* ── add / edit ─────────────────────────────────────────── */
 
 function renderAdd() {
-  const ok = tripConfigured();
-  $('#add-blocked').hidden = ok;
-  $('#entry-form').hidden = !ok;
   $('#field-account').hidden = !multiAccount();
-  if (ok) renderDateStrip();
+  renderDateStrip();
 }
 
 function renderDateStrip() {
@@ -1281,9 +1280,6 @@ function init() {
 
   document.querySelectorAll('.tab').forEach((t) => {
     t.addEventListener('click', () => switchView(t.dataset.view));
-  });
-  document.querySelectorAll('[data-goto]').forEach((b) => {
-    b.addEventListener('click', () => switchView(b.dataset.goto));
   });
 
   $('#set-start').addEventListener('change', updateRangeState);

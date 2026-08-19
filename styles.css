@@ -273,15 +273,6 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 }
 
 /* ── title row & pill ─────────────────────── */
-/* ── blocked notice ───────────────────────── */
-.notice {
-  background: var(--surface); border: 1px solid var(--line);
-  border-left: 4px solid var(--green);
-  border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
-}
-.notice strong { display: block; font-size: 16px; margin-bottom: 6px; }
-.notice p { margin: 0 0 14px; font-size: 14px; color: var(--muted); }
-
 /* ── date strip ───────────────────────────── */
 .date-strip {
   display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px;

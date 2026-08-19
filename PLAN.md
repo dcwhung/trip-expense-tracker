@@ -96,7 +96,7 @@
 - **改緊一筆 top-up 時，成個 Category 區隱藏** —— top-up 冇 category，中途轉類型即係另一筆紀錄
 - 共用同一條 date strip，所以 top-up 一樣可以用 `Today` 記喺出發前
 
-**未設定 trip dates**：整個表單隱藏，出阻擋畫面 + `alert()`，有掣直接去 Settings。
+**未設定 trip dates**：撳 `Expense` 只會彈 `alert()` 提你去設定，**畫面留喺 Settings 唔會跳走** —— 跳去一個空嘅 Expense 版你都係要撳返轉頭。
 
 ### Records
 - 頂部 summary card：**左邊 `Budget left`**（= 全部 top up − 全部支出），**右邊 `Spent`**（帶負號、紅色）；下面 `22/8 → 28/8 · 7 days · Day 3 of 7`。**唔顯示筆數**
@@ -181,7 +181,7 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 - [ ] 部機熄機重開 → 資料仲在
 
 **Settings**
-- [ ] 未設定日期時：撳 Expense → 出 alert + 入唔到數；Records / Stats / Export 三個 tab 唔見；Settings 只有 Trip dates 一張卡
+- [ ] 未設定日期時：撳 Expense → 出 alert，**畫面留喺 Settings**；Records / Stats / Export 三個 tab 唔見；Settings 只有 Trip dates 一張卡
 - [ ] 存咗日期之後，三個 tab、Accounts 卡同 Reset 掣即刻出現（唔使切走再切返）
 - [ ] Account 兩個都唔填 → Expense 冇 Account 揀掣，Records 冇 account 名，得一張 budget card
 - [ ] 只填一個都係當單 pot；填夠兩個先出返 Account 揀掣

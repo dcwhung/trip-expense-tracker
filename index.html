@@ -100,7 +100,6 @@
       <div class="summary-day" id="sum-day"></div>
     </div>
 
-    <button class="btn block" type="button" id="stats-open">Statistics</button>
 
     <div class="section-head">Budget left</div>
     <div id="budget-cards" class="budget-cards"></div>
@@ -115,6 +114,12 @@
 
     <div class="section-head">Expenses</div>
     <div id="list"></div>
+  </section>
+
+  <!-- ───────────── Statistics ───────────── -->
+  <section id="view-stats" class="view" hidden>
+    <h1 class="screen-title">Statistics</h1>
+    <div id="stats-body"></div>
   </section>
 
   <!-- ───────────── Export ───────────── -->
@@ -185,19 +190,10 @@
 <nav class="tabbar">
   <button class="tab" type="button" data-view="add"><span>＋</span>Expense</button>
   <button class="tab" type="button" data-view="list"><span>≡</span>Records</button>
+  <button class="tab" type="button" data-view="stats"><span>▤</span>Stats</button>
   <button class="tab" type="button" data-view="export"><span>↥</span>Export</button>
   <button class="tab" type="button" data-view="settings"><span>⚙</span>Settings</button>
 </nav>
-
-<div id="stats-modal" class="sheet" hidden>
-  <div class="sheet-inner viz-root">
-    <div class="sheet-head">
-      <strong>Statistics</strong>
-      <button id="stats-close" class="btn btn-ghost" type="button">Close</button>
-    </div>
-    <div id="stats-body"></div>
-  </div>
-</div>
 
 <div id="sheet" class="sheet" hidden>
   <div class="sheet-inner">

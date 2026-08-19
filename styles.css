@@ -231,10 +231,11 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
   padding-bottom: env(safe-area-inset-bottom);
 }
 .tab {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 1px; height: var(--tabbar-h);
   background: none; border: 0; color: var(--muted);
-  font: inherit; font-size: 11px; font-weight: 600;
+  font: inherit; font-size: 10px; font-weight: 600;
 }
 .tab span { font-size: 19px; line-height: 1; }
 .tab[aria-selected="true"] { color: var(--accent); }
@@ -347,27 +348,7 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 .bar-track { height: 10px; background: var(--bg); border-radius: 5px; }
 .bar-fill { height: 100%; border-radius: 0 5px 5px 0; min-width: 5px; }
 
-.donut-stage { position: relative; width: 210px; max-width: 68vw; margin: 0 auto; }
-.donut { display: block; width: 100%; height: auto; }
-.donut-centre {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  pointer-events: none;
-}
-.donut-total { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
-.donut-label { font-size: 11px; color: var(--muted); }
+.stats-head { margin-bottom: 22px; }
+.stats-total { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+.stats-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-.legend {
-  display: grid; grid-template-columns: repeat(2, 1fr);
-  gap: 6px 14px; margin-top: 18px;
-}
-.legend-item { display: flex; align-items: center; gap: 7px; font-size: 12px; }
-.legend-dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
-.legend-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.legend-value { color: var(--muted); font-variant-numeric: tabular-nums; }
-
-.viz-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.viz-table th, .viz-table td { padding: 8px 4px; border-bottom: 1px solid var(--line); text-align: left; }
-.viz-table th { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: 0.02em; }
-.viz-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-.viz-total-row td { font-weight: 700; border-bottom: 0; }

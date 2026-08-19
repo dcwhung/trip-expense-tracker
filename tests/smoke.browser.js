@@ -59,15 +59,9 @@ const OUT = process.env.SHOT_DIR || '/tmp';
   await page.waitForTimeout(250);
   await page.screenshot({ path: OUT + '/02-list.png', fullPage: true });
 
-  await page.click('#stats-open');
+  await page.click('.tab[data-view="stats"]');
   await page.waitForTimeout(2600);      // let the save toast clear first
-  await page.screenshot({ path: OUT + '/05-stats.png' });
-  await page.evaluate(() => document.querySelector('#stats-body').scrollIntoView(false));
-  await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(300);
-  await page.screenshot({ path: OUT + '/06-stats-table.png' });
-  await page.click('#stats-close');
-  await page.waitForTimeout(200);
+  await page.screenshot({ path: OUT + '/05-stats.png', fullPage: true });
 
   await page.click('.tab[data-view="export"]');
   await page.waitForTimeout(200);

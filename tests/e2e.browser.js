@@ -38,7 +38,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.goto(URL, { waitUntil: 'networkidle' });
 
   const visibleView = () => page.evaluate(() =>
-    ['add', 'list', 'export', 'settings']
+    ['add', 'list', 'stats', 'export', 'settings']
       .filter((v) => !document.getElementById('view-' + v).hidden)[0]);
 
   section('first run with no trip dates');
@@ -514,11 +514,14 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     labels.some((t) => /^Food · \S+ · Global Money$/.test(t)), JSON.stringify(labels));
 
   section('statistics');
-  await page.click('.tab[data-view="list"]');
-  await page.waitForTimeout(200);
-  await page.click('#stats-open');
+  await page.click('.tab[data-view="stats"]');
   await page.waitForTimeout(250);
-  check('the statistics modal opens', !(await page.locator('#stats-modal').isHidden()));
+  check('Statistics is its own section, not a modal',
+    (await visibleView()) === 'stats', await visibleView());
+  check('no modal is involved',
+    (await page.locator('#stats-modal').count()) === 0);
+  check('the donut is gone', (await page.locator('#stats-body .donut').count()) === 0);
+  check('the table is gone', (await page.locator('#stats-body .viz-table').count()) === 0);
 
   const catsWithSpend = await page.evaluate(() => {
     const seen = new Set();
@@ -528,12 +531,13 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('one bar per category that has spend',
     (await page.locator('#stats-body .bar-row').count()) === catsWithSpend,
     (await page.locator('#stats-body .bar-row').count()) + ' vs ' + catsWithSpend);
-  check('the donut has the same number of segments',
-    (await page.locator('#stats-body .donut circle').count()) === catsWithSpend);
-  check('a legend labels every slice',
-    (await page.locator('#stats-body .legend-item').count()) === catsWithSpend);
-  check('a table view carries the exact figures',
-    (await page.locator('#stats-body .viz-table tr').count()) === catsWithSpend + 2);
+  check('the headline matches the Records total', await page.evaluate(async () => {
+    const shown = document.querySelector('.stats-total').textContent;
+    const entries = JSON.parse(localStorage.getItem('tripspend.entries.v1'));
+    const total = entries.reduce((t, e) => t + e.amountMinor, 0);
+    return shown === '€' + (total / 100).toLocaleString('en-GB',
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }));
 
   check('bars are sorted largest first', await page.evaluate(() => {
     const w = Array.from(document.querySelectorAll('#stats-body .bar-fill'))
@@ -542,6 +546,9 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   }));
   check('the largest bar is full width', await page.evaluate(() =>
     parseFloat(document.querySelector('#stats-body .bar-fill').style.width) === 100));
+  check('every bar is labelled with its amount and share', await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#stats-body .bar-value'))
+      .every((el) => /€[\d,.]+\s+·\s+\d+%/.test(el.textContent))));
 
   // Colour follows the category, not its position in the sorted list.
   check('each category keeps its own fixed colour', await page.evaluate(() => {
@@ -553,18 +560,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     });
   }));
 
-  check('donut shares are the same figures as the table', await page.evaluate(() => {
-    const legend = Array.from(document.querySelectorAll('#stats-body .legend-value'))
-      .map((el) => el.textContent);
-    const table = Array.from(document.querySelectorAll('#stats-body .viz-table tr'))
-      .slice(1, -1).map((tr) => Math.round(parseFloat(tr.children[2].textContent)) + '%');
-    return legend.length === table.length && legend.every((v, i) => v === table[i]);
-  }));
-
   await page.screenshot({ path: OUT + '/05-stats.png', fullPage: true });
-  await page.click('#stats-close');
-  await page.waitForTimeout(200);
-  check('the modal closes', await page.locator('#stats-modal').isHidden());
 
   check('no page errors', errors.length === 0, errors.join('; '));
   console.log('\n' + pass + ' passed, ' + fail + ' failed\n');

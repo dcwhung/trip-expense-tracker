@@ -42,6 +42,8 @@
 
 單 pot 模式下 budget **合晒全部紀錄嚟計**，唔理每筆本身存住咩 account label。所以清走 account 名之後，舊資料唔會唔見咗。
 
+**由單 pot 轉去具名 account**：未有名之前入嘅紀錄 `account` 係空字串，如果唔理佢哋，改完名之後就會**兩邊唔到岸** —— 唔計入任何一張 budget card，但又照計入區標題總數。所以只要有任何一個 account 有名，空 account 嘅紀錄就會**自動歸入第一個 account**。呢個補正喺存 Settings、import、同埋每次開 app 三個時機都會行一次，所以舊資料開一開 app 就自動修好。
+
 ### Expense — `tripspend.entries.v1`
 ```js
 {

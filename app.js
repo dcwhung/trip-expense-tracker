@@ -873,6 +873,23 @@ function updateAccountsState() {
 
 const accountFieldValues = () => [$('#set-acct-0').value.trim(), $('#set-acct-1').value.trim()];
 
+// Records logged before any account was named carry an empty account. The
+// moment a name exists they have to belong to it, otherwise they sit outside
+// every budget card while still counting toward the section totals.
+function backfillEmptyAccounts() {
+  const first = settings.accounts.filter(Boolean)[0];
+  if (!first) return false;
+
+  let touched = false;
+  entries.forEach((e) => { if (!e.account) { e.account = first; touched = true; } });
+  topups.forEach((t) => { if (!t.account) { t.account = first; touched = true; } });
+  if (touched) {
+    saveEntries();
+    saveTopups();
+  }
+  return touched;
+}
+
 function applyAccountRename(next) {
   // Only a rename migrates records. Clearing a name is not a rename — those
   // records keep their label and simply fold into the single pot.
@@ -898,8 +915,9 @@ function saveAllSettings() {
   if (updateRangeState() || updateAccountsState()) return;
 
   const names = accountFieldValues();
-  const renamed = applyAccountRename(names);
+  applyAccountRename(names);
   settings.accounts = names;
+  backfillEmptyAccounts();
   settings.tripStart = $('#set-start').value;
   settings.tripEnd = $('#set-end').value;
   if (!saveSettings()) return;
@@ -1176,6 +1194,7 @@ function runImport() {
   }));
   saveEntries();
   saveTopups();
+  backfillEmptyAccounts();
 
   $('#import-box').value = '';
   buildChips($('#acct-grid'), activeAccounts().map((k) => ({ key: k })));
@@ -1296,6 +1315,9 @@ function init() {
   buildChips($('#pay-grid'), PAYMENTS.map((k) => ({ key: k })));
 
   if (activeAccounts().indexOf(sticky.account) < 0) sticky.account = activeAccounts()[0];
+
+  // Heals data saved before the account names existed.
+  backfillEmptyAccounts();
   if (PAYMENTS.indexOf(sticky.payment) < 0) sticky.payment = PAYMENTS[0];
 
   wireAmountField($('#amount'));

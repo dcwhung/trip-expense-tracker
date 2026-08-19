@@ -726,6 +726,79 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     (await page.textContent('#topup-list .row-desc')) === 'Top-up',
     await page.textContent('#topup-list .row-desc'));
 
+  section('naming accounts later adopts the earlier records');
+  // At this point a €200 top-up and a €25 expense exist with no account.
+  await page.click('.tab[data-view="settings"]');
+  await page.waitForTimeout(200);
+  await page.fill('#set-acct-0', 'Donald');
+  await page.fill('#set-acct-1', 'Kwan');
+  await page.click('#save-settings');
+  await page.waitForTimeout(300);
+
+  check('earlier entries are adopted by the first account', await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tripspend.entries.v1'))
+      .every((e) => e.account === 'Donald')));
+  check('earlier top-ups are adopted too', await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tripspend.topups.v1'))
+      .every((t) => t.account === 'Donald')));
+
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(250);
+  check('two budget cards again', (await page.locator('.budget-card').count()) === 2);
+  check('nothing is stranded outside a budget card',
+    (await page.locator('.budget-card').nth(0).textContent()).includes('€175.00'),
+    await page.locator('.budget-card').nth(0).textContent());
+  check('the second account starts empty',
+    (await page.locator('.budget-card').nth(1).textContent()).includes('€0.00'),
+    await page.locator('.budget-card').nth(1).textContent());
+  check('the Top-ups total agrees with the cards',
+    (await page.textContent('#topup-total')) === '+€200.00',
+    await page.textContent('#topup-total'));
+  check('rows show the adopted account name',
+    (await page.textContent('#list .row-sub')) === 'Food · Donald · Global Money',
+    await page.textContent('#list .row-sub'));
+  check('the top-up row shows it too',
+    (await page.textContent('#topup-list .row-desc')) === 'Donald',
+    await page.textContent('#topup-list .row-desc'));
+
+  section('data saved before the names existed heals on load');
+  // Exactly the shape a user reported: records written while unnamed, then
+  // account names added afterwards, leaving those records outside every card.
+  await page.evaluate(() => {
+    localStorage.setItem('tripspend.settings.v1', JSON.stringify(
+      { tripStart: '2026-08-18', tripEnd: '2026-08-23', accounts: ['Donald', 'Kwan'] }));
+    localStorage.setItem('tripspend.entries.v1', JSON.stringify([
+      { id: 'a', date: '2026-08-19', amountMinor: 1245, currency: 'EUR', account: '',
+        payment: 'Credit Card', category: 'Food', description: '', remarks: 'McDonald',
+        createdAt: '2026-08-19T13:47:10.784Z' },
+      { id: 'b', date: '2026-08-19', amountMinor: 880, currency: 'EUR', account: 'Donald',
+        payment: 'Cash', category: 'Household', description: 'LAWSON', remarks: '',
+        createdAt: '2026-08-19T13:49:48.711Z' },
+    ]));
+    localStorage.setItem('tripspend.topups.v1', JSON.stringify([
+      { id: 'x', date: '2026-08-19', amountMinor: 100000, currency: 'EUR', account: '',
+        createdAt: '2026-08-19T13:46:47.260Z' },
+      { id: 'y', date: '2026-08-19', amountMinor: 80000, currency: 'EUR', account: 'Kwan',
+        createdAt: '2026-08-19T13:50:04.973Z' },
+    ]));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(300);
+
+  check('unnamed records are adopted on load', await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tripspend.entries.v1')).every((e) => e.account) &&
+    JSON.parse(localStorage.getItem('tripspend.topups.v1')).every((t) => t.account)));
+  check('the first account picks up its €1,000 top-up',
+    (await page.locator('.budget-card').nth(0).textContent()).includes('€978.75'),
+    await page.locator('.budget-card').nth(0).textContent());
+  check('the second account is untouched',
+    (await page.locator('.budget-card').nth(1).textContent()).includes('€800.00'),
+    await page.locator('.budget-card').nth(1).textContent());
+  check('the Top-ups total now agrees with the cards',
+    (await page.textContent('#topup-total')) === '+€1,800.00',
+    await page.textContent('#topup-total'));
+
   check('no page errors', errors.length === 0, errors.join('; '));
   console.log('\n' + pass + ' passed, ' + fail + ' failed\n');
   await browser.close();

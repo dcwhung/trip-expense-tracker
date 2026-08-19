@@ -4,7 +4,7 @@
    Trip dates and account names live in Settings; the currency is fixed per
    build. See PLAN.md for the decisions behind all of this. */
 
-const BUILD = 'v32';                 // keep in step with CACHE in sw.js
+const BUILD = 'v33';                 // keep in step with CACHE in sw.js
 const CURRENCY = { code: 'EUR', symbol: '€' };
 const SCHEMA_VERSION = 2;
 const LOW_BALANCE_MINOR = 10000;   // under €100 left shows red
@@ -520,8 +520,11 @@ function setMode(next) {
   const topupChip = $('#cat-grid').querySelector('.chip[data-value="' + TOPUP_KEY + '"]');
   if (topupChip) topupChip.hidden = !!editingId;
 
+  // While editing, the picker replaces the strip rather than sitting under
+  // it — two controls for one field just makes you wonder which one wins.
   const editing = !!(editingId || editingTopupId);
   const picker = $('#date-picker');
+  $('#date-strip').hidden = editing;
   picker.hidden = !editing;
   if (editing) picker.value = selectedDate || '';
 

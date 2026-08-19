@@ -953,6 +953,8 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(250);
   check('editing an expense reveals the picker',
     !(await page.locator('#date-picker').isHidden()));
+  check('and the strip steps aside so only one control is offered',
+    await page.locator('#date-strip').isHidden());
   check('and it opens on the record’s own date',
     (await page.inputValue('#date-picker')) === '2026-08-24',
     await page.inputValue('#date-picker'));
@@ -962,8 +964,8 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(200);
   check('picking outside the trip drops the Day badge for the date',
     (await page.textContent('#day-badge')) === '10/8', await page.textContent('#day-badge'));
-  check('and no strip chip claims to be selected',
-    (await page.locator('#date-strip .date-chip[aria-pressed="true"]').count()) === 0);
+  check('and no strip chip claims to be selected', await page.evaluate(() =>
+    document.querySelectorAll('#date-strip .date-chip[aria-pressed="true"]').length === 0));
   await page.click('#submit-btn');
   await page.waitForTimeout(250);
   check('the expense keeps the out-of-range date', await page.evaluate(() =>
@@ -984,6 +986,8 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(250);
   check('the picker hides again once the edit is over',
     await page.locator('#date-picker').isHidden());
+  check('and the strip comes back',
+    !(await page.locator('#date-strip').isHidden()));
   check('tapping a strip chip still drives the picker', await page.evaluate(async () => {
     document.querySelector('#date-strip .date-chip[data-value="2026-08-25"]').click();
     await new Promise((r) => setTimeout(r, 100));

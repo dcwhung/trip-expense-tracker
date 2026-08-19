@@ -885,6 +885,44 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('clearing an unused name asks nothing', dialogs.length === 0,
     JSON.stringify(dialogs.map((d) => d.message)));
 
+  section('accounts sort and compact');
+  await page.evaluate(() => {
+    localStorage.setItem('tripspend.settings.v1', JSON.stringify(
+      { tripStart: '2026-08-18', tripEnd: '2026-08-23', accounts: ['Zoe', 'Amy'] }));
+    localStorage.setItem('tripspend.entries.v1', JSON.stringify([
+      { id: 'a', date: '2026-08-19', amountMinor: 1000, currency: 'EUR', account: 'Zoe',
+        payment: 'Cash', category: 'Food', description: 'Z', remarks: '',
+        createdAt: '2026-08-19T10:00:00Z' },
+      { id: 'b', date: '2026-08-19', amountMinor: 2000, currency: 'EUR', account: 'Amy',
+        payment: 'Cash', category: 'Food', description: 'A', remarks: '',
+        createdAt: '2026-08-19T11:00:00Z' }]));
+    localStorage.setItem('tripspend.topups.v1', JSON.stringify([]));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.click('.tab[data-view="settings"]');
+  await page.waitForTimeout(250);
+  check('the boxes read alphabetically',
+    (await page.inputValue('#set-acct-0')) === 'Amy' &&
+    (await page.inputValue('#set-acct-1')) === 'Zoe');
+  check('and the stored order is rewritten to match', await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tripspend.settings.v1')).accounts.join() === 'Amy,Zoe'));
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(250);
+  check('budget cards follow the same order', await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.budget-name')).map((n) => n.textContent).join() === 'Amy,Zoe'));
+
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('tripspend.settings.v1'));
+    s.accounts = ['', 'Amy'];
+    localStorage.setItem('tripspend.settings.v1', JSON.stringify(s));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.click('.tab[data-view="settings"]');
+  await page.waitForTimeout(250);
+  check('a lone second name moves up to the first box',
+    (await page.inputValue('#set-acct-0')) === 'Amy' &&
+    (await page.inputValue('#set-acct-1')) === '');
+
   section('import refuses unknown accounts');
   await seedAccounts(['Donald', 'Kwan']);
   await page.click('.tab[data-view="export"]');

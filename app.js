@@ -85,6 +85,17 @@ const saveEntries = () => writeKey(K.entries, entries);
 const saveTopups = () => writeKey(K.topups, topups);
 const saveSettings = () => writeKey(K.settings, settings);
 
+// Named accounts sort to the front, alphabetically; empty slots trail. Keeps
+// the Settings boxes and the budget cards in one predictable order.
+function canonicalAccounts(list) {
+  const named = list
+    .map((a) => String(a == null ? '' : a).trim())
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+  while (named.length < 2) named.push('');
+  return named.slice(0, 2);
+}
+
 function normaliseSettings(raw) {
   const s = (raw && typeof raw === 'object') ? raw : {};
   const accounts = Array.isArray(s.accounts) ? s.accounts.slice(0, 2) : [];
@@ -92,7 +103,7 @@ function normaliseSettings(raw) {
   return {
     tripStart: typeof s.tripStart === 'string' ? s.tripStart : '',
     tripEnd: typeof s.tripEnd === 'string' ? s.tripEnd : '',
-    accounts: accounts.map((a) => String(a == null ? '' : a).trim()),
+    accounts: canonicalAccounts(accounts),
   };
 }
 
@@ -957,8 +968,8 @@ function saveAllSettings() {
                  '.\n\nTyping the name back will not bring them out again. Continue?')) return;
   }
 
-  applyAccountEdits(names);
-  settings.accounts = names;
+  applyAccountEdits(names);          // slot-aligned with the boxes on screen
+  settings.accounts = canonicalAccounts(names);
   backfillEmptyAccounts();
   settings.tripStart = $('#set-start').value;
   settings.tripEnd = $('#set-end').value;
@@ -1373,6 +1384,10 @@ function init() {
 
   // "Named accounts exist but a record has none" is not a legal state.
   backfillEmptyAccounts();
+
+  // normaliseSettings sorts and compacts on read; persist that so an export
+  // carries the same order the screen shows.
+  if (JSON.stringify(readKey(K.settings, null)) !== JSON.stringify(settings)) saveSettings();
   if (PAYMENTS.indexOf(sticky.payment) < 0) sticky.payment = PAYMENTS[0];
 
   wireAmountField($('#amount'));

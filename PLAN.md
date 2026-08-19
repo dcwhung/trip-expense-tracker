@@ -47,6 +47,10 @@
 **不變量：只要有任何一個 account 有名，每一筆紀錄都必須屬於某個有名嘅 account。**
 `account: ""` 只喺「一個名都未有」嘅世界先合法。
 
+**次序**：有名嘅 account 永遠**排喺前面、按字母排序**，空 slot 殿後。所以只填咗 Account 2 嘅話，個名會自動移上 Account 1；Settings 兩個輸入框、Records 嘅 budget card、Expense 嘅 Account 揀掣三處次序一致。呢個正規化喺開 app 時會**寫返落 storage**，令 export 出嚟嘅 JSON 同畫面一致。
+
+⚠️ 實作上要注意：改名／清空係靠 **slot 對位**分辨嘅，所以一定要**先比對、後排序** —— 掉轉做會將「改名」誤讀成「清走一個 + 加一個」，紀錄就會搬錯人。
+
 | 轉換 | 紀錄點變 |
 |---|---|
 | 零個名 → 有名 | 全部 `""` 收編去**第一個有名嘅 account** |
@@ -217,6 +221,8 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 - [ ] 未設定日期時：撳 Expense → 出 alert，**畫面留喺 Settings**；Records / Stats / Export 三個 tab 唔見；Settings 只有 Trip dates 一張卡
 - [ ] 存咗日期之後，三個 tab、Accounts 卡同 Reset 掣即刻出現（唔使切走再切返）
 - [ ] Account 兩個都唔填 → Expense 冇 Account 揀掣，Records 冇 account 名，得一張 budget card
+- [ ] 只填 Account 2 → 存完之後個名跳咗上 Account 1
+- [ ] 兩個名倒序輸入 → Settings 兩格同 budget card 都按字母排
 - [ ] 改名 → 舊紀錄全部跟住新名；唔會彈 confirm
 - [ ] 清走一個名 → 彈 confirm 講明幾多筆併去邊；確認後嗰啲紀錄真係轉咗會籍
 - [ ] 清走一個從來冇用過嘅名 → 唔彈 confirm

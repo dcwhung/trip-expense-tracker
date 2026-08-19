@@ -52,7 +52,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     /trip dates/.test(await page.textContent('#toast')),
     await page.textContent('#toast'));
   check('and it is styled as a warning',
-    (await page.locator('#toast').getAttribute('class')).includes('toast-warn') &&
+    (await page.locator('#toast').getAttribute('class')).includes('tint-warn') &&
     (await page.textContent('#toast')).startsWith('⚠️'),
     await page.textContent('#toast'));
   check('no alert dialog is used', !dialogs.some((d) => d.type === 'alert'),
@@ -83,6 +83,10 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('reversed range is called out',
     /before the start/.test(await page.textContent('#range-state')),
     await page.textContent('#range-state'));
+  check('and it wears the warning tint, same as a warning toast',
+    (await page.locator('#range-state').getAttribute('class')).includes('tint-warn') &&
+    (await page.textContent('#range-state')).startsWith('⚠️'),
+    await page.textContent('#range-state'));
   // The earlier "set your trip dates" toast is still on screen; let it clear
   // so what follows measures this Save, not that one.
   await page.waitForSelector('#toast', { state: 'hidden' });
@@ -97,7 +101,11 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.fill('#set-end', '2026-08-28');
   await page.waitForTimeout(120);
   check('valid range shows the day count',
-    (await page.textContent('#range-state')) === '22/8 → 28/8 · 7 days',
+    (await page.textContent('#range-state')).includes('22/8 → 28/8 · 7 days'),
+    await page.textContent('#range-state'));
+  check('and wears the success tint with its icon',
+    (await page.locator('#range-state').getAttribute('class')).includes('tint-success') &&
+    (await page.textContent('#range-state')).startsWith('✅'),
     await page.textContent('#range-state'));
   await page.click('#save-settings');
   await page.waitForTimeout(200);
@@ -139,6 +147,10 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(120);
   check('duplicate names are flagged inline',
     /different names/.test(await page.textContent('#accounts-state')),
+    await page.textContent('#accounts-state'));
+  check('the account error uses the warning tint too',
+    (await page.locator('#accounts-state').getAttribute('class')).includes('tint-warn') &&
+    (await page.textContent('#accounts-state')).startsWith('⚠️'),
     await page.textContent('#accounts-state'));
   await page.fill('#set-acct-1', 'Kwan');
   await page.waitForTimeout(120);
@@ -404,7 +416,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(150);
   let t = await toastNow();
   check('a warning is amber with ⚠️',
-    t.cls.includes('toast-warn') && t.text.startsWith('⚠️'), JSON.stringify(t));
+    t.cls.includes('tint-warn') && t.text.startsWith('⚠️'), JSON.stringify(t));
 
   await page.waitForSelector('#toast', { state: 'hidden' });
   await page.fill('#import-box', 'not json at all');
@@ -412,7 +424,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(150);
   t = await toastNow();
   check('an error is red with ⛔',
-    t.cls.includes('toast-error') && t.text.startsWith('⛔'), JSON.stringify(t));
+    t.cls.includes('tint-error') && t.text.startsWith('⛔'), JSON.stringify(t));
   await page.fill('#import-box', '');
 
   await page.waitForSelector('#toast', { state: 'hidden' });
@@ -420,7 +432,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.waitForTimeout(200);
   t = await toastNow();
   check('a success is green with ✅',
-    t.cls.includes('toast-success') && t.text.startsWith('✅'), JSON.stringify(t));
+    t.cls.includes('tint-success') && t.text.startsWith('✅'), JSON.stringify(t));
 
   section('wipe → import round trip');
   await page.fill('#wipe-confirm', 'DELETE');

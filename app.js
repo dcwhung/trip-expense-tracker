@@ -843,15 +843,13 @@ function updateRangeState() {
   const el = $('#range-state');
   const err = rangeError($('#set-start').value, $('#set-end').value);
   if (err) {
-    el.textContent = err;
-    el.className = 'range-state is-bad';
+    setStateLine(el, 'warn', err);
   } else {
     const start = $('#set-start').value;
     const end = $('#set-end').value;
     const n = daysBetween(start, end) + 1;
-    el.textContent = shortDate(start) + ' → ' + shortDate(end) + ' · ' + n +
-      (n === 1 ? ' day' : ' days');
-    el.className = 'range-state is-good';
+    setStateLine(el, 'success', shortDate(start) + ' → ' + shortDate(end) + ' · ' + n +
+      (n === 1 ? ' day' : ' days'));
   }
   return err;
 }
@@ -869,8 +867,7 @@ function updateAccountsState() {
   const err = accountsError(accountFieldValues());
   const el = $('#accounts-state');
   el.hidden = !err;
-  el.textContent = err;
-  el.className = 'range-state is-bad';
+  if (err) setStateLine(el, 'warn', err);
   return err;
 }
 
@@ -1224,20 +1221,30 @@ function showSheet(title, text) {
 
 const TOAST_ICON = { success: '✅', warn: '⚠️', error: '⛔' };
 
+// Icon + message, used by toasts and by the inline state lines in Settings.
+function fillTinted(el, kind, msg) {
+  el.innerHTML = '';
+  const ico = document.createElement('span');
+  ico.className = 'toast-icon';
+  ico.textContent = TOAST_ICON[kind];
+  const text = document.createElement('span');
+  text.textContent = msg;
+  el.appendChild(ico);
+  el.appendChild(text);
+}
+
+function setStateLine(el, kind, msg) {
+  el.className = 'state-line tint-' + kind;
+  fillTinted(el, kind, msg);
+}
+
 let toastTimer = null;
 // kind: 'success' (default) | 'warn' | 'error'
 function toast(msg, kind) {
   const k = TOAST_ICON[kind] ? kind : 'success';
   const el = $('#toast');
-  el.className = 'toast toast-' + k;
-  el.innerHTML = '';
-  const ico = document.createElement('span');
-  ico.className = 'toast-icon';
-  ico.textContent = TOAST_ICON[k];
-  const text = document.createElement('span');
-  text.textContent = msg;
-  el.appendChild(ico);
-  el.appendChild(text);
+  el.className = 'toast tint-' + k;
+  fillTinted(el, k, msg);
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 2200);

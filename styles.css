@@ -263,10 +263,20 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 #sheet-text { height: 42vh; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 
-/* Styled like a browser console row: a muted tint of the hue behind text and
-   a border of the same, icon at the left, text left-aligned. Colours are
-   fixed per theme rather than themed tokens, because a toast floats over
-   whatever is behind it. Every pair clears 4.5:1. */
+/* Console-style tints, shared by toasts and the inline state lines in
+   Settings so both speak the same colour language. Fixed per theme rather
+   than themed tokens — a toast floats over whatever is behind it. Every
+   pair clears 4.5:1. */
+.tint-success { background: #E6F4EA; color: #14653F; border-color: #14653F; }
+.tint-warn    { background: #FEF7E0; color: #8A4E00; border-color: #8A4E00; }
+.tint-error   { background: #FCECEA; color: #B3261E; border-color: #B3261E; }
+
+@media (prefers-color-scheme: dark) {
+  .tint-success { background: #1E3226; color: #A8DEC2; border-color: #3E6B50; }
+  .tint-warn    { background: #35301F; color: #FDD663; border-color: #6B5C2A; }
+  .tint-error   { background: #3B2325; color: #F2B8B5; border-color: #6E3B3B; }
+}
+
 .toast {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
   z-index: 60;
@@ -274,17 +284,8 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
   padding: 11px 14px; border-radius: 8px; border: 1px solid;
   font-size: 14px; font-weight: 500; line-height: 1.4;
   max-width: 84vw; text-align: left;
-  background: #E6F4EA; color: #14653F; border-color: #14653F;
 }
 .toast-icon { flex: none; font-size: 15px; line-height: 1.35; }
-.toast-success { background: #E6F4EA; color: #14653F; border-color: #14653F; }
-.toast-warn    { background: #FEF7E0; color: #8A4E00; border-color: #8A4E00; }
-.toast-error   { background: #FCECEA; color: #B3261E; border-color: #B3261E; }
-
-@media (prefers-color-scheme: dark) {
-  .toast-success { background: #1E3226; color: #A8DEC2; border-color: #3E6B50; }
-  .toast-warn    { background: #35301F; color: #FDD663; border-color: #6B5C2A; }
-  .toast-error   { background: #3B2325; color: #F2B8B5; border-color: #6E3B3B; }
 }
 
 /* ── title row & pill ─────────────────────── */
@@ -341,12 +342,12 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 .range-arrow { flex: none; color: var(--muted); font-size: 18px; font-weight: 600; }
 .stack-input { margin-bottom: 8px; }
 
-.range-state {
-  font-size: 14px; font-weight: 600; padding: 11px 13px;
-  border-radius: var(--radius); background: var(--bg);
+/* Same tint system as the toasts. */
+.state-line {
+  display: flex; align-items: flex-start; gap: 9px;
+  font-size: 14px; font-weight: 500; line-height: 1.4;
+  padding: 11px 13px; border-radius: 8px; border: 1px solid;
 }
-.range-state.is-good { color: var(--ok); }
-.range-state.is-bad { color: var(--danger); }
 
 /* ── statistics ───────────────────────────── */
 .viz-block { margin: 18px 0 26px; }

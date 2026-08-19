@@ -110,6 +110,8 @@ Toast 有三種，樣式仿瀏覽器 console 嘅一行：**淡色底 + 同色系
 
 顏色**寫死唔跟主題 token**（toast 浮喺任何背景之上），但分光暗兩套。六個組合對比度 5.7 – 9.4 : 1，全部過 4.5:1。
 
+**Settings 嘅 inline 狀態行用同一套色**（`.tint-success` / `.tint-warn` 由 toast 同狀態行共用，一處定義）：日期範圍啱就綠 ✅，唔啱同 account 撞名就橙 ⚠️。
+
 ### Records
 - 頂部 summary card：**左邊 `Budget left`**（= 全部 top up − 全部支出），**右邊 `Spent`**（帶負號、紅色）；下面 `22/8 → 28/8 · 7 days · Day 3 of 7`。**唔顯示筆數**
 

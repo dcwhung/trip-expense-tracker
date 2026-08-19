@@ -1,4 +1,7 @@
 :root {
+  /* Lets the browser paint its own bits — the date input's calendar glyph,
+     the picker popup, scrollbars — in whichever theme is actually on. */
+  color-scheme: light dark;
   --green: #0F3D2E;
   --green-2: #1B5C46;
   --bg: #F5F6F4;

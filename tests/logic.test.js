@@ -300,5 +300,11 @@ check('every rule the layout depends on survives parsing', () => {
       'missing rule for ' + sel));
 });
 
+check('the browser is told which theme its own widgets should follow', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.ok(/:root\s*\{[^}]*color-scheme:\s*light dark/.test(css),
+    'without color-scheme the date input\'s calendar glyph stays dark on dark');
+});
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed\n');
 process.exit(fail ? 1 : 0);

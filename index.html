@@ -32,6 +32,7 @@
       <div class="field">
         <span class="label">Date <em id="day-badge"></em></span>
         <div id="date-strip" class="date-strip"></div>
+        <input id="date-picker" type="date" aria-label="Pick any date" hidden>
       </div>
 
       <div class="field" id="field-category">
@@ -158,9 +159,15 @@
     <div class="card">
       <div class="card-title">Trip dates</div>
       <div class="date-range-row">
-        <input id="set-start" type="date" aria-label="Trip start date">
+        <span class="date-field">
+          <input id="set-start" type="date" aria-label="Trip start date">
+          <span class="date-ph" aria-hidden="true">DD/MM/YYYY</span>
+        </span>
         <span class="range-arrow" aria-hidden="true">→</span>
-        <input id="set-end" type="date" aria-label="Trip end date">
+        <span class="date-field">
+          <input id="set-end" type="date" aria-label="Trip end date">
+          <span class="date-ph" aria-hidden="true">DD/MM/YYYY</span>
+        </span>
       </div>
       <div id="range-state" class="state-line tint-warn">Not set</div>
       <p class="hint" id="range-warning" hidden></p>

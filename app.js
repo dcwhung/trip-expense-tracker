@@ -4,7 +4,7 @@
    Trip dates and account names live in Settings; the currency is fixed per
    build. See PLAN.md for the decisions behind all of this. */
 
-const BUILD = 'v31';                 // keep in step with CACHE in sw.js
+const BUILD = 'v32';                 // keep in step with CACHE in sw.js
 const CURRENCY = { code: 'EUR', symbol: '€' };
 const SCHEMA_VERSION = 2;
 const LOW_BALANCE_MINOR = 10000;   // under €100 left shows red
@@ -353,6 +353,8 @@ function renderDateStrip() {
 
 function selectDate(iso) {
   selectedDate = iso;
+  const picker = $('#date-picker');
+  if (picker.value !== iso) picker.value = iso || '';
   const today = localDate();
   $('#date-strip').querySelectorAll('.date-chip').forEach((b) => {
     const on = b.id === 'date-today' ? (iso === today) : (b.dataset.value === iso);
@@ -518,7 +520,12 @@ function setMode(next) {
   const topupChip = $('#cat-grid').querySelector('.chip[data-value="' + TOPUP_KEY + '"]');
   if (topupChip) topupChip.hidden = !!editingId;
 
-  $('#submit-btn').textContent = (editingId || editingTopupId)
+  const editing = !!(editingId || editingTopupId);
+  const picker = $('#date-picker');
+  picker.hidden = !editing;
+  if (editing) picker.value = selectedDate || '';
+
+  $('#submit-btn').textContent = editing
     ? 'Update'
     : (isTopup ? 'Confirm' : 'Save');
 }
@@ -838,6 +845,14 @@ function renderStats() {
 
 /* ── settings ───────────────────────────────────────────── */
 
+// Marks an empty date input so the stylesheet can swap the device's own
+// format hint for ours.
+function syncDatePlaceholders() {
+  document.querySelectorAll('.date-field input[type="date"]').forEach((el) => {
+    el.classList.toggle('is-empty', !el.value);
+  });
+}
+
 function renderSettings() {
   $('#set-start').value = settings.tripStart;
   $('#set-end').value = settings.tripEnd;
@@ -849,6 +864,7 @@ function renderSettings() {
   $('#reset-card').hidden = !ok;
   $('#reset-confirm').value = '';
   $('#reset-settings').disabled = true;
+  syncDatePlaceholders();
   updateRangeState();
   updateAccountsState();
 }
@@ -1395,6 +1411,12 @@ function init() {
 
   resetForm();
 
+  $('#date-picker').addEventListener('change', (ev) => {
+    if (!ev.target.value) return;
+    selectDate(ev.target.value);
+    scrollSelectedIntoView();
+  });
+
   $('#entry-form').addEventListener('submit', onSubmit);
   $('#delete-btn').addEventListener('click', onDelete);
   $('#cancel-btn').addEventListener('click', () => { resetForm(); switchView('list'); });
@@ -1403,8 +1425,10 @@ function init() {
     t.addEventListener('click', () => switchView(t.dataset.view));
   });
 
-  $('#set-start').addEventListener('change', updateRangeState);
-  $('#set-end').addEventListener('change', updateRangeState);
+  ['#set-start', '#set-end'].forEach((sel) => {
+    $(sel).addEventListener('change', () => { syncDatePlaceholders(); updateRangeState(); });
+    $(sel).addEventListener('input', syncDatePlaceholders);
+  });
   $('#set-acct-0').addEventListener('input', updateAccountsState);
   $('#set-acct-1').addEventListener('input', updateAccountsState);
   $('#save-settings').addEventListener('click', saveAllSettings);

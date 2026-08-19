@@ -303,6 +303,7 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
   background: var(--green); border-color: var(--green); color: #fff;
 }
 .date-chip-today { font-size: 14px; }
+#date-picker { margin-top: 8px; }
 #day-badge:not(:empty) {
   font-style: normal; font-weight: 700; color: var(--accent); margin-left: 6px;
 }
@@ -336,7 +337,20 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 
 /* ── settings ─────────────────────────────── */
 .date-range-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.date-range-row input { flex: 1; min-width: 0; }
+.date-range-row .date-field { flex: 1; min-width: 0; }
+
+/* A native date input ignores `placeholder` — its empty text comes from the
+   device's region setting. So blank out that shadow text and lay our own
+   over the top, keeping the native picker underneath. */
+.date-field { position: relative; display: block; }
+.date-field input[type="date"] { width: 100%; }
+.date-ph {
+  position: absolute; inset: 0;
+  display: none; align-items: center; padding: 0 32px 0 14px;
+  color: var(--muted); font-size: 15px; pointer-events: none;
+}
+input[type="date"].is-empty::-webkit-datetime-edit { color: transparent; }
+input[type="date"].is-empty + .date-ph { display: flex; }
 .range-arrow { flex: none; color: var(--muted); font-size: 18px; font-weight: 600; }
 .stack-input { margin-bottom: 8px; }
 

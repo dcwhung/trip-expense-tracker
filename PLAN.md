@@ -100,6 +100,7 @@
 
 ### Expense（入數）
 1. **Date** — 橫向可 scroll 嘅日期掣，最前係 **Today**，之後按 trip range 每日一格，label 係 `24/8`
+   - **改緊一筆嘢嗰陣**，日期掣下面會多一個同 Settings 一樣嘅 `<input type="date">`，可以揀**任何日子**（包括旅程範圍外）；新增嗰陣唔顯示
    - `Today` **永遠揀得**，即使今日喺旅程之外 —— 出發前嘅 booking expense 同 top up 都要入得
    - **預設揀今日**；今日唔喺 range 就唔預揀（要你主動撳）
    - 標題右邊：範圍內顯示 `Day 3`，**範圍外顯示實際日期**（例如 `18/8`）；未揀就唔顯示
@@ -150,7 +151,11 @@ Toast 有三種，樣式仿瀏覽器 console 嘅一行：**淡色底 + 同色系
 CSV · JSON · 純文字摘要 · Import JSON · 上次備份時間 · 清除所有資料
 
 ### Settings
-保留 card title（`Trip dates` / `Accounts`）作分區，但**冇欄位 label**，一律用 placeholder；`<input type="date">` 唔支援 placeholder，所以用 `start → end` 同一行 + 落面條狀態行表達。
+保留 card title（`Trip dates` / `Accounts`）作分區，但**冇欄位 label**，一律用 placeholder。
+
+`<input type="date">` **唔理 `placeholder` 屬性** —— 佢空白時顯示嘅格式係跟瀏覽器／裝置嘅地區設定嘅（實測過：連 `lang="en-GB"` 同瀏覽器 locale 設 en-GB 都改唔到）。所以做法係：空白時將原生 shadow 文字整成透明（`::-webkit-datetime-edit { color: transparent }`），再用一個 sibling `<span>` 蓋喺上面寫住 `DD/MM/YYYY`，原生 picker 照樣用得。
+
+⚠️ 留意：**有值嗰陣顯示嘅格式仍然跟裝置地區** —— 呢個改唔到，除非唔用原生 date input。
 
 - **Trip dates** — start / end 同一行，即時驗證同顯示日數
 - **Accounts** — 兩個名（placeholder `Account 1` / `Account 2`），**可以唔填**。改名會**同步更新所有現有紀錄同 top-up**；清走個名唔算改名，嗰啲紀錄保留原 label 但歸入單 pot
@@ -244,6 +249,8 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 
 **入數**
 - [ ] Date strip 有 `Today` + 7 個日子掣，scroll 得，揀咗顯示 `Day N`
+- [ ] 改緊一筆嘢 → 出到 date input，揀個旅程範圍外嘅日子存到，badge 顯示日期而唔係 `Day N`
+- [ ] Settings 兩個日期欄空白時顯示 `DD/MM/YYYY`
 - [ ] 開 app 預設揀咗今日（今日喺 range 內）；撳 `Today` 跳返今日
 - [ ] **出發前**（今日喺 range 外）撳 `Today` → 揀得到，badge 顯示日期而唔係 `Day N`
 - [ ] 出發前入一筆 booking expense 同一筆 top up → 兩樣都入得，清單度嗰日冇 `Day` 標籤

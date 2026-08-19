@@ -76,6 +76,27 @@ const section = (s) => console.log('\n── ' + s + ' ──');
     !(await page.locator('.tab[data-view="add"]').isHidden()) &&
     !(await page.locator('.tab[data-view="settings"]').isHidden()));
 
+  section('date placeholders');
+  // A native date input ignores `placeholder`; its empty text comes from the
+  // device region. Ours is laid over the top instead.
+  check('an empty date field shows DD/MM/YYYY', await page.evaluate(() => {
+    const el = document.querySelector('#set-start');
+    const ph = el.nextElementSibling;
+    return el.classList.contains('is-empty') &&
+      getComputedStyle(ph).display !== 'none' && ph.textContent === 'DD/MM/YYYY';
+  }));
+  await page.fill('#set-start', '2026-08-22');
+  await page.waitForTimeout(200);
+  check('and it gets out of the way once a date is picked', await page.evaluate(() => {
+    const el = document.querySelector('#set-start');
+    return !el.classList.contains('is-empty') &&
+      getComputedStyle(el.nextElementSibling).display === 'none';
+  }));
+  check('the empty one still shows it', await page.evaluate(() =>
+    document.querySelector('#set-end').classList.contains('is-empty')));
+  await page.fill('#set-start', '');
+  await page.waitForTimeout(200);
+
   section('trip date validation');
   await page.fill('#set-start', '2026-08-28');
   await page.fill('#set-end', '2026-08-22');
@@ -906,6 +927,68 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await saveNames('Donald', '');
   check('clearing an unused name asks nothing', dialogs.length === 0,
     JSON.stringify(dialogs.map((d) => d.message)));
+
+  section('editing can reach any date');
+  await page.evaluate(() => {
+    localStorage.setItem('tripspend.settings.v1', JSON.stringify(
+      { tripStart: '2026-08-22', tripEnd: '2026-08-28', accounts: ['', ''] }));
+    localStorage.setItem('tripspend.entries.v1', JSON.stringify([
+      { id: 'p', date: '2026-08-24', amountMinor: 900, currency: 'EUR', account: '',
+        payment: 'Cash', category: 'Food', description: 'Lunch', remarks: '',
+        createdAt: '2026-08-24T10:00:00Z' }]));
+    localStorage.setItem('tripspend.topups.v1', JSON.stringify([
+      { id: 'q', date: '2026-08-24', amountMinor: 20000, currency: 'EUR', account: '',
+        createdAt: '2026-08-24T09:00:00Z' }]));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+
+  await page.click('.tab[data-view="add"]');
+  await page.waitForTimeout(250);
+  check('no picker while logging something new',
+    await page.locator('#date-picker').isHidden());
+
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(250);
+  await page.click('#list .row');
+  await page.waitForTimeout(250);
+  check('editing an expense reveals the picker',
+    !(await page.locator('#date-picker').isHidden()));
+  check('and it opens on the record’s own date',
+    (await page.inputValue('#date-picker')) === '2026-08-24',
+    await page.inputValue('#date-picker'));
+
+  // A date the strip cannot offer — before the trip starts.
+  await page.fill('#date-picker', '2026-08-10');
+  await page.waitForTimeout(200);
+  check('picking outside the trip drops the Day badge for the date',
+    (await page.textContent('#day-badge')) === '10/8', await page.textContent('#day-badge'));
+  check('and no strip chip claims to be selected',
+    (await page.locator('#date-strip .date-chip[aria-pressed="true"]').count()) === 0);
+  await page.click('#submit-btn');
+  await page.waitForTimeout(250);
+  check('the expense keeps the out-of-range date', await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tripspend.entries.v1'))[0].date === '2026-08-10'));
+
+  await page.click('#topup-list .row');
+  await page.waitForTimeout(250);
+  check('editing a top-up reveals it too',
+    !(await page.locator('#date-picker').isHidden()));
+  await page.fill('#date-picker', '2026-09-05');
+  await page.waitForTimeout(200);
+  await page.click('#submit-btn');
+  await page.waitForTimeout(250);
+  check('the top-up keeps its new date', await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tripspend.topups.v1'))[0].date === '2026-09-05'));
+
+  await page.click('.tab[data-view="add"]');
+  await page.waitForTimeout(250);
+  check('the picker hides again once the edit is over',
+    await page.locator('#date-picker').isHidden());
+  check('tapping a strip chip still drives the picker', await page.evaluate(async () => {
+    document.querySelector('#date-strip .date-chip[data-value="2026-08-25"]').click();
+    await new Promise((r) => setTimeout(r, 100));
+    return document.querySelector('#date-picker').value === '2026-08-25';
+  }));
 
   section('accounts sort and compact');
   await page.evaluate(() => {

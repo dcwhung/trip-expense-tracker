@@ -96,7 +96,9 @@
 - **改緊一筆 top-up 時，成個 Category 區隱藏** —— top-up 冇 category，中途轉類型即係另一筆紀錄
 - 共用同一條 date strip，所以 top-up 一樣可以用 `Today` 記喺出發前
 
-**未設定 trip dates**：撳 `Expense` 只會彈 `alert()` 提你去設定，**畫面留喺 Settings 唔會跳走** —— 跳去一個空嘅 Expense 版你都係要撳返轉頭。
+**未設定 trip dates**：撳 `Expense` 只會出一個 toast 提你去設定，**畫面留喺 Settings 唔會跳走** —— 跳去一個空嘅 Expense 版你都係要撳返轉頭。
+
+**App 入面冇 `alert()`** —— 所有提示一律用 toast，浮喺畫面正中，2.2 秒後自動消失。需要你答「係／唔係」嗰啲（刪除、import、Reset All）先用 `confirm()`。
 
 ### Records
 - 頂部 summary card：**左邊 `Budget left`**（= 全部 top up − 全部支出），**右邊 `Spent`**（帶負號、紅色）；下面 `22/8 → 28/8 · 7 days · Day 3 of 7`。**唔顯示筆數**
@@ -117,7 +119,7 @@ CSV · JSON · 純文字摘要 · Import JSON · 上次備份時間 · 清除所
 
 - **Trip dates** — start / end 同一行，即時驗證同顯示日數
 - **Accounts** — 兩個名（placeholder `Account 1` / `Account 2`），**可以唔填**。改名會**同步更新所有現有紀錄同 top-up**；清走個名唔算改名，嗰啲紀錄保留原 label 但歸入單 pot
-- **Reset** 掣 —— 清走旅行日期同 account 名，**紀錄同 top-up 保留**，重新設定日期就見返
+- **Reset All** —— **清晒所有嘢**：旅行日期、account 名、全部紀錄同 top-up。要打 `RESET` 先解鎖個掣，撳完仲有一次 confirm。無得 undo
 - **一個 Save 掣**存晒全部。錯誤已經 inline 即時顯示，所以按 Save 唔會再彈同一句 toast —— 有錯就靜靜哋唔存
 - **未設定旅行日期之前，Settings 只顯示 Trip dates 一張卡**（Accounts 卡同 Reset 掣都收埋），而且 **Records / Stats / Export 三個 tab 都會隱藏** —— 冇日期嗰陣佢哋冇意義
 
@@ -185,7 +187,8 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 - [ ] 存咗日期之後，三個 tab、Accounts 卡同 Reset 掣即刻出現（唔使切走再切返）
 - [ ] Account 兩個都唔填 → Expense 冇 Account 揀掣，Records 冇 account 名，得一張 budget card
 - [ ] 只填一個都係當單 pot；填夠兩個先出返 Account 揀掣
-- [ ] 撳 Reset → 日期同 account 清空、三個 tab 收埋，但**紀錄同 top-up 仲喺度**，重新設定日期就見返
+- [ ] Reset All：唔打 `RESET` 撳唔到；打咗再 confirm 之後，**日期、account、全部紀錄同 top-up 一次過清晒**，三個 tab 收埋
+- [ ] Reset 之後個確認欄自動清空，唔會留住 `RESET` 令個掣一直着住
 - [ ] End date 早過 start date → 有錯誤訊息，儲存唔到
 - [ ] 設定 22/8–28/8 → 顯示 `7 days`
 - [ ] 改 account 名 → 舊紀錄同 top-up 都跟住改

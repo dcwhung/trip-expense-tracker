@@ -286,7 +286,7 @@ function switchView(name) {
   // Without a trip range there is nowhere useful to go but Settings, and
   // bouncing the user to a dead Expense screen only makes them tap back.
   if (!tripConfigured() && name !== 'settings') {
-    if (name === 'add') alert('Set your trip dates in Settings first.');
+    if (name === 'add') toast('Set your trip dates in Settings first');
     name = 'settings';
   }
   VIEWS.forEach((v) => { $('#view-' + v).hidden = (v !== name); });
@@ -405,8 +405,6 @@ function openEdit(id) {
 
 function onSubmit(ev) {
   ev.preventDefault();
-  if (!tripConfigured()) { alert('Set your trip dates in Settings first.'); return; }
-
   if (mode === 'topup') { submitTopup(); return; }
 
   if (!selectedDate) { toast('Pick a date'); return; }
@@ -834,7 +832,9 @@ function renderSettings() {
   // Nothing but the dates until a trip exists — the rest has no meaning yet.
   const ok = tripConfigured();
   $('#accounts-card').hidden = !ok;
-  $('#reset-settings').hidden = !ok;
+  $('#reset-card').hidden = !ok;
+  $('#reset-confirm').value = '';
+  $('#reset-settings').disabled = true;
   updateRangeState();
   updateAccountsState();
 }
@@ -930,19 +930,28 @@ function saveAllSettings() {
 }
 
 function resetSettings() {
-  if (!confirm('Reset the trip dates and account names?\n\n' +
-               'Your entries and top-ups are kept — they reappear once you set ' +
-               'a trip range again.')) return;
+  if ($('#reset-confirm').value.trim().toUpperCase() !== 'RESET') return;
+  if (!confirm('Reset everything?\n\nThis erases all ' + entries.length + ' entries and ' +
+               topups.length + ' top-ups, along with the trip dates and account names. ' +
+               'No undo.')) return;
+
+  entries = [];
+  topups = [];
   settings = normaliseSettings(null);
+  sticky = { account: '', payment: PAYMENTS[0] };
+  saveEntries();
+  saveTopups();
   if (!saveSettings()) return;
-  sticky.account = '';
   writeKey(K.sticky, sticky);
+  writeKey(K.backup, null);
+  writeKey(K.banner, null);
+
   buildChips($('#acct-grid'), activeAccounts().map((k) => ({ key: k })));
   updateTabVisibility();
   resetForm();
   renderSettings();
   switchView('settings');
-  toast('Reset');
+  toast('Everything reset');
 }
 
 /* ── exports ────────────────────────────────────────────── */
@@ -1287,6 +1296,9 @@ function init() {
   $('#set-acct-0').addEventListener('input', updateAccountsState);
   $('#set-acct-1').addEventListener('input', updateAccountsState);
   $('#save-settings').addEventListener('click', saveAllSettings);
+  $('#reset-confirm').addEventListener('input', (ev) => {
+    $('#reset-settings').disabled = ev.target.value.trim().toUpperCase() !== 'RESET';
+  });
   $('#reset-settings').addEventListener('click', resetSettings);
 
   document.querySelectorAll('[data-export]').forEach((b) => {

@@ -177,7 +177,13 @@
     </div>
 
     <button class="btn btn-primary block" type="button" id="save-settings">Save</button>
-    <button class="btn btn-warn block" type="button" id="reset-settings" hidden>Reset All</button>
+
+    <div class="card danger-card" id="reset-card" hidden>
+      <div class="card-title">Reset</div>
+      <p class="hint">Clears the trip dates, the account names, and <strong>every entry and top-up</strong>. Type <code>RESET</code> to enable. No undo.</p>
+      <input id="reset-confirm" type="text" autocomplete="off" autocapitalize="characters" placeholder="RESET">
+      <button class="btn btn-danger block" type="button" id="reset-settings" disabled>Reset All</button>
+    </div>
   </section>
 
 </main>

@@ -47,7 +47,11 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   dialogs.length = 0;
   await page.click('.tab[data-view="add"]');
   await page.waitForTimeout(200);
-  check('tapping Expense raises an alert', dialogs.some((d) => d.type === 'alert'),
+  check('tapping Expense shows a toast, not a blocking dialog',
+    !(await page.locator('#toast').isHidden()) &&
+    /trip dates/.test(await page.textContent('#toast')),
+    await page.textContent('#toast'));
+  check('no alert dialog is used', !dialogs.some((d) => d.type === 'alert'),
     JSON.stringify(dialogs));
   check('and leaves you on Settings rather than a dead Expense screen',
     (await visibleView()) === 'settings', await visibleView());
@@ -75,6 +79,9 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('reversed range is called out',
     /before the start/.test(await page.textContent('#range-state')),
     await page.textContent('#range-state'));
+  // The earlier "set your trip dates" toast is still on screen; let it clear
+  // so what follows measures this Save, not that one.
+  await page.waitForSelector('#toast', { state: 'hidden' });
   await page.click('#save-settings');
   await page.waitForTimeout(150);
   check('reversed range is not saved',
@@ -101,7 +108,7 @@ const section = (s) => console.log('\n── ' + s + ' ──');
       !document.querySelector(`.tab[data-view="${v}"]`).hidden)));
   check('the Accounts card and Reset appear',
     !(await page.locator('#accounts-card').isHidden()) &&
-    !(await page.locator('#reset-settings').isHidden()));
+    !(await page.locator('#reset-card').isHidden()));
 
   section('accounts are optional');
   check('both name fields start empty',
@@ -603,20 +610,26 @@ const section = (s) => console.log('\n── ' + s + ' ──');
 
   await page.screenshot({ path: OUT + '/05-stats.png', fullPage: true });
 
-  section('reset');
-  const before = await page.evaluate(() => ({
-    entries: JSON.parse(localStorage.getItem('tripspend.entries.v1')).length,
-    topups: JSON.parse(localStorage.getItem('tripspend.topups.v1')).length,
-  }));
+  section('reset all');
   await page.click('.tab[data-view="settings"]');
   await page.waitForTimeout(200);
-  await page.click('#reset-settings');
-  await page.waitForTimeout(300);
+  check('the reset button starts disabled', await page.locator('#reset-settings').isDisabled());
+  await page.fill('#reset-confirm', 'reset me');
+  await page.waitForTimeout(120);
+  check('a near miss does not enable it', await page.locator('#reset-settings').isDisabled());
+  await page.fill('#reset-confirm', 'RESET');
+  await page.waitForTimeout(120);
+  check('typing RESET enables it', !(await page.locator('#reset-settings').isDisabled()));
 
-  check('the trip dates are cleared', await page.evaluate(() => {
+  await page.click('#reset-settings');
+  await page.waitForTimeout(350);
+  check('the trip dates and accounts are cleared', await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem('tripspend.settings.v1'));
     return !s.tripStart && !s.tripEnd && s.accounts.every((a) => a === '');
   }));
+  check('every entry and top-up is erased', await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('tripspend.entries.v1')).length === 0 &&
+    JSON.parse(localStorage.getItem('tripspend.topups.v1')).length === 0));
   check('it lands on Settings', (await visibleView()) === 'settings', await visibleView());
   for (const v of ['list', 'stats', 'export']) {
     check('the ' + v + ' tab is hidden again',
@@ -624,50 +637,49 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   }
   check('only the trip dates are on offer',
     (await page.locator('#accounts-card').isHidden()) &&
-    (await page.locator('#reset-settings').isHidden()));
-  check('entries and top-ups survive the reset', await page.evaluate((b) => {
-    const e = JSON.parse(localStorage.getItem('tripspend.entries.v1')).length;
-    const t = JSON.parse(localStorage.getItem('tripspend.topups.v1')).length;
-    return e === b.entries && t === b.topups;
-  }, before));
+    (await page.locator('#reset-card').isHidden()));
 
-  section('single pot after a reset');
+  section('single pot on a fresh trip');
   await page.fill('#set-start', '2026-08-22');
   await page.fill('#set-end', '2026-08-28');
   await page.click('#save-settings');
   await page.waitForTimeout(250);
-  await page.click('.tab[data-view="list"]');
+  check('the confirmation box is cleared for next time',
+    (await page.inputValue('#reset-confirm')) === '' &&
+    (await page.locator('#reset-settings').isDisabled()));
+
+  await page.click('.tab[data-view="add"]');
+  await page.waitForTimeout(200);
+  check('with no account names the picker is hidden',
+    await page.locator('#field-account').isHidden());
+  await page.click('#date-strip .date-chip[data-value="2026-08-22"]');
+  await page.click('#cat-grid .chip[data-value="__topup"]');
+  await page.fill('#amount', '200');
+  await page.click('#submit-btn');
+  await page.waitForTimeout(250);
+  await page.click('#date-strip .date-chip[data-value="2026-08-22"]');
+  await page.click('#cat-grid .chip[data-value="Food"]');
+  await page.fill('#amount', '25');
+  await page.fill('#description', 'Pizza');
+  await page.click('#submit-btn');
   await page.waitForTimeout(250);
 
-  check('the data is back', await page.evaluate((b) =>
-    document.querySelectorAll('#list .row').length === b.entries, before));
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(250);
   check('there is one budget card, not two',
     (await page.locator('.budget-card').count()) === 1,
     String(await page.locator('.budget-card').count()));
   check('it carries no account name',
     (await page.locator('.budget-card .budget-name').count()) === 0);
-  check('the single pot totals everything regardless of old labels',
-    await page.evaluate(() => {
-      const e = JSON.parse(localStorage.getItem('tripspend.entries.v1'))
-        .reduce((t, x) => t + x.amountMinor, 0);
-      const t = JSON.parse(localStorage.getItem('tripspend.topups.v1'))
-        .reduce((a, x) => a + x.amountMinor, 0);
-      const shown = document.querySelector('.budget-left').textContent;
-      const want = (t - e) / 100;
-      return shown === (want < 0 ? '-' : '') + '€' + Math.abs(want)
-        .toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }));
-  check('expense rows drop the account name', await page.evaluate(() =>
-    Array.from(document.querySelectorAll('#list .row-sub'))
-      .every((el) => el.textContent.split(' · ').length === 2)));
-  check('a top-up row reads simply Top-up', await page.evaluate(() => {
-    const el = document.querySelector('#topup-list .row-desc');
-    return !el || el.textContent === 'Top-up';
-  }));
-  await page.click('.tab[data-view="add"]');
-  await page.waitForTimeout(200);
-  check('the Account picker stays hidden',
-    await page.locator('#field-account').isHidden());
+  check('the single pot maths is right',
+    (await page.textContent('.budget-left')) === '€175.00',
+    await page.textContent('.budget-left'));
+  check('expense rows drop the account name',
+    (await page.textContent('#list .row-sub')) === 'Food · Global Money',
+    await page.textContent('#list .row-sub'));
+  check('a top-up row reads simply Top-up',
+    (await page.textContent('#topup-list .row-desc')) === 'Top-up',
+    await page.textContent('#topup-list .row-desc'));
 
   check('no page errors', errors.length === 0, errors.join('; '));
   console.log('\n' + pass + ' passed, ' + fail + ' failed\n');

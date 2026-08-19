@@ -100,15 +100,15 @@
 
 **App 入面冇 `alert()`** —— 所有提示一律用 toast，浮喺畫面正中，2.2 秒後自動消失。需要你答「係／唔係」嗰啲（刪除、import、Reset All）先用 `confirm()`。
 
-Toast 有三種：
+Toast 有三種，樣式仿瀏覽器 console 嘅一行：**淡色底 + 同色系文字同邊框**，圖示喺左，文字左對齊。
 
-| 類型 | 圖示 | 底色 | 例子 |
+| 類型 | 圖示 | 淺色主題（底 / 字） | 深色主題（底 / 字） |
 |---|---|---|---|
-| success | ✅ | 綠 `#1B7A4B` | `Added €12.50` · `Saved` · `Restored 4 entries` |
-| warn | ⚠️ | 橙 `#A15C00` | `Pick a category` · `Nothing logged yet` |
-| error | ⛔ | 紅 `#B3261E` | `That amount is not valid` · `That is not valid JSON` |
+| success | ✅ | `#E6F4EA` / `#14653F` | `#1E3226` / `#A8DEC2` |
+| warn | ⚠️ | `#FEF7E0` / `#8A4E00` | `#35301F` / `#FDD663` |
+| error | ⛔ | `#FCECEA` / `#B3261E` | `#3B2325` / `#F2B8B5` |
 
-三隻底色都用白字，對比度分別 5.3 / 5.2 / 6.5 : 1，兩個 mode 都夠。底色寫死唔跟主題，因為 toast 浮喺任何背景之上。
+顏色**寫死唔跟主題 token**（toast 浮喺任何背景之上），但分光暗兩套。六個組合對比度 5.7 – 9.4 : 1，全部過 4.5:1。
 
 ### Records
 - 頂部 summary card：**左邊 `Budget left`**（= 全部 top up − 全部支出），**右邊 `Spent`**（帶負號、紅色）；下面 `22/8 → 28/8 · 7 days · Day 3 of 7`。**唔顯示筆數**

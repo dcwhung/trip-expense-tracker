@@ -263,17 +263,29 @@ code { font-size: 12px; background: var(--bg); padding: 1px 5px; border-radius: 
 .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 #sheet-text { height: 42vh; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 
-/* Toasts float over either theme's surface, so their fills are fixed rather
-   than themed — white text on all three reads in light and dark alike. */
+/* Styled like a browser console row: a muted tint of the hue behind text and
+   a border of the same, icon at the left, text left-aligned. Colours are
+   fixed per theme rather than themed tokens, because a toast floats over
+   whatever is behind it. Every pair clears 4.5:1. */
 .toast {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  z-index: 60; color: #fff; background: #1B5C46;
-  padding: 13px 20px; border-radius: 14px; font-size: 15px; font-weight: 600;
-  max-width: 80vw; text-align: center; line-height: 1.35;
+  z-index: 60;
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 11px 14px; border-radius: 8px; border: 1px solid;
+  font-size: 14px; font-weight: 500; line-height: 1.4;
+  max-width: 84vw; text-align: left;
+  background: #E6F4EA; color: #14653F; border-color: #14653F;
 }
-.toast-success { background: #1B7A4B; }
-.toast-warn    { background: #A15C00; }
-.toast-error   { background: #B3261E; }
+.toast-icon { flex: none; font-size: 15px; line-height: 1.35; }
+.toast-success { background: #E6F4EA; color: #14653F; border-color: #14653F; }
+.toast-warn    { background: #FEF7E0; color: #8A4E00; border-color: #8A4E00; }
+.toast-error   { background: #FCECEA; color: #B3261E; border-color: #B3261E; }
+
+@media (prefers-color-scheme: dark) {
+  .toast-success { background: #1E3226; color: #A8DEC2; border-color: #3E6B50; }
+  .toast-warn    { background: #35301F; color: #FDD663; border-color: #6B5C2A; }
+  .toast-error   { background: #3B2325; color: #F2B8B5; border-color: #6E3B3B; }
+}
 
 /* ── title row & pill ─────────────────────── */
 /* ── date strip ───────────────────────────── */

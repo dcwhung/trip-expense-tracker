@@ -1230,7 +1230,14 @@ function toast(msg, kind) {
   const k = TOAST_ICON[kind] ? kind : 'success';
   const el = $('#toast');
   el.className = 'toast toast-' + k;
-  el.textContent = TOAST_ICON[k] + '  ' + msg;
+  el.innerHTML = '';
+  const ico = document.createElement('span');
+  ico.className = 'toast-icon';
+  ico.textContent = TOAST_ICON[k];
+  const text = document.createElement('span');
+  text.textContent = msg;
+  el.appendChild(ico);
+  el.appendChild(text);
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, 2200);

@@ -65,6 +65,7 @@ if (!sticky || typeof sticky !== 'object') sticky = {};
 
 let selectedDate = null;
 let editingId = null;
+let editingTopupId = null;
 let mode = 'expense';          // 'expense' | 'topup'
 
 const TOPUP_KEY = '__topup';
@@ -330,6 +331,7 @@ function scrollSelectedIntoView() {
 
 function resetForm() {
   editingId = null;
+  editingTopupId = null;
   $('#amount').value = '';
   $('#description').value = '';
   $('#remarks').value = '';
@@ -352,6 +354,7 @@ function openEdit(id) {
   const e = entries.find((x) => x.id === id);
   if (!e) return;
   editingId = id;
+  editingTopupId = null;
   $('#amount').value = plain(e.amountMinor);
   $('#description').value = e.description || '';
   $('#remarks').value = e.remarks || '';
@@ -371,7 +374,7 @@ function onSubmit(ev) {
   ev.preventDefault();
   if (!tripConfigured()) { alert('Set your trip dates in Settings first.'); return; }
 
-  if (mode === 'topup') { addTopup(); return; }
+  if (mode === 'topup') { submitTopup(); return; }
 
   if (!selectedDate) { toast('Pick a date'); return; }
 
@@ -430,6 +433,17 @@ function onSubmit(ev) {
 }
 
 function onDelete() {
+  if (editingTopupId) {
+    const t = topups.find((x) => x.id === editingTopupId);
+    if (!t) return;
+    if (!confirm('Delete the ' + money(t.amountMinor) + ' top-up for ' + t.account + '? No undo.')) return;
+    topups = topups.filter((x) => x.id !== editingTopupId);
+    saveTopups();
+    resetForm();
+    switchView('list');
+    toast('Top-up deleted');
+    return;
+  }
   if (!editingId) return;
   if (!confirm('Delete this entry? No undo.')) return;
   entries = entries.filter((x) => x.id !== editingId);
@@ -449,14 +463,38 @@ function setMode(next) {
   $('#field-payment').hidden = isTopup;
   $('#field-description').hidden = isTopup;
   $('#field-remarks').hidden = isTopup;
-  $('#submit-btn').textContent = isTopup ? 'Confirm' : (editingId ? 'Update' : 'Save');
+
+  // An existing top-up has no category, and letting the grid switch types
+  // mid-edit would turn it into a different record — so hide it outright.
+  $('#field-category').hidden = !!editingTopupId;
+
+  // Top Up is a mode switch, not something an existing expense can become.
+  const topupChip = $('#cat-grid').querySelector('.chip[data-value="' + TOPUP_KEY + '"]');
+  if (topupChip) topupChip.hidden = !!editingId;
+
+  $('#submit-btn').textContent = (editingId || editingTopupId)
+    ? 'Update'
+    : (isTopup ? 'Confirm' : 'Save');
 }
 
-function addTopup() {
+function submitTopup() {
   if (!selectedDate) { toast('Pick a date'); return; }
   const amountMinor = parseAmount($('#amount').value);
   if (amountMinor == null || amountMinor <= 0) { toast('That amount is not valid'); return; }
   const account = getChip($('#acct-grid')) || settings.accounts[0];
+
+  if (editingTopupId) {
+    const t = topups.find((x) => x.id === editingTopupId);
+    if (t) {
+      Object.assign(t, { amountMinor: amountMinor, account: account, date: selectedDate,
+                         updatedAt: new Date().toISOString() });
+    }
+    if (!saveTopups()) return;
+    resetForm();
+    switchView('list');
+    toast('Top-up updated');
+    return;
+  }
 
   topups.push({
     id: uid(),
@@ -479,14 +517,22 @@ function addTopup() {
   if (navigator.vibrate) navigator.vibrate(12);
 }
 
-function deleteTopup(id) {
+function openEditTopup(id) {
   const t = topups.find((x) => x.id === id);
   if (!t) return;
-  if (!confirm('Remove the ' + money(t.amountMinor) + ' top-up for ' + t.account + '?')) return;
-  topups = topups.filter((x) => x.id !== id);
-  saveTopups();
-  renderList();
-  toast('Top-up removed');
+  editingId = null;
+  editingTopupId = id;
+  $('#amount').value = plain(t.amountMinor);
+  $('#description').value = '';
+  $('#remarks').value = '';
+  selectedDate = t.date;
+  setChip($('#cat-grid'), TOPUP_KEY);
+  setChip($('#acct-grid'), t.account);
+  setMode('topup');
+  $('#delete-btn').hidden = false;
+  $('#cancel-btn').hidden = false;
+  $('#add-title').textContent = 'Edit top-up';
+  switchView('add');
 }
 
 /* ── records ────────────────────────────────────────────── */
@@ -578,7 +624,7 @@ function renderTopupList() {
       row.appendChild(ico);
       row.appendChild(main);
       row.appendChild(amt);
-      row.addEventListener('click', () => deleteTopup(t.id));
+      row.addEventListener('click', () => openEditTopup(t.id));
       host.appendChild(row);
     });
 }
@@ -1101,7 +1147,7 @@ function init() {
   // backgrounding, so re-evaluate whenever the app comes back.
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
-      if (!editingId && !$('#view-add').hidden) {
+      if (!editingId && !editingTopupId && !$('#view-add').hidden) {
         const today = localDate();
         if (dayNumber(today) && selectedDate !== today && !$('#amount').value) selectDate(today);
       }

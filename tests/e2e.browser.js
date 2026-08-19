@@ -211,12 +211,38 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   check('under €100 turns red', (await page.locator('.budget-card').nth(0)
     .getAttribute('class')).includes('is-low'));
 
-  section('top-up can be removed');
+  section('top-up can be edited or removed');
   check('top-up section is visible', !(await page.locator('#topup-list-wrap').isHidden()));
   await page.click('#topup-list .row');
   await page.waitForTimeout(250);
-  check('removing it takes the budget back down',
+  check('tapping a top-up opens it for editing',
+    (await page.textContent('#add-title')) === 'Edit top-up', await page.textContent('#add-title'));
+  check('its amount is prefilled', (await page.inputValue('#amount')) === '500.00',
+    await page.inputValue('#amount'));
+  check('the category grid is hidden while editing a top-up',
+    await page.locator('#field-category').isHidden());
+  check('the button reads Update',
+    (await page.textContent('#submit-btn')) === 'Update', await page.textContent('#submit-btn'));
+  check('Delete and Cancel are offered',
+    !(await page.locator('#delete-btn').isHidden()) && !(await page.locator('#cancel-btn').isHidden()));
+
+  await page.fill('#amount', '600');
+  await page.click('#submit-btn');
+  await page.waitForTimeout(250);
+  check('editing the amount moves the budget',
+    (await budget(0)).includes('€182.70'), await budget(0));
+  check('editing does not create a second top-up',
+    (await page.locator('#topup-list .row').count()) === 1,
+    String(await page.locator('#topup-list .row').count()));
+
+  await page.click('#topup-list .row');
+  await page.waitForTimeout(200);
+  await page.click('#delete-btn');
+  await page.waitForTimeout(250);
+  check('deleting from the edit form takes the budget back down',
     (await budget(0)).includes('-€417.30'), await budget(0));
+  check('the top-up list empties', await page.locator('#topup-list-wrap').isHidden());
+
   // Put it back for the remaining tests.
   await page.click('.tab[data-view="add"]');
   await page.waitForTimeout(150);
@@ -225,6 +251,28 @@ const section = (s) => console.log('\n── ' + s + ' ──');
   await page.click('#acct-grid .chip[data-value="Donald"]');
   await page.click('#submit-btn');
   await page.waitForTimeout(250);
+
+  section('Top Up is not offered when editing an expense');
+  await page.click('.tab[data-view="list"]');
+  await page.waitForTimeout(200);
+  await page.click('#list .row');
+  await page.waitForTimeout(200);
+  check('the expense edit form is open',
+    (await page.textContent('#add-title')) === 'Edit', await page.textContent('#add-title'));
+  check('the Top Up chip is hidden',
+    await page.locator('#cat-grid .chip[data-value="__topup"]').isHidden());
+  check('the real categories are still there',
+    !(await page.locator('#cat-grid .chip[data-value="Food"]').isHidden()));
+  await page.click('#cancel-btn');
+  await page.waitForTimeout(200);
+  // Cancel lands on Records, and an element inside a hidden view counts as
+  // hidden — so come back to Add before asking.
+  await page.click('.tab[data-view="add"]');
+  await page.waitForTimeout(200);
+  check('Top Up comes back once the edit is cancelled',
+    !(await page.locator('#cat-grid .chip[data-value="__topup"]').isHidden()));
+  check('the form is back to Add',
+    (await page.textContent('#add-title')) === 'Add', await page.textContent('#add-title'));
 
   section('backup banner at 21:30');
   await page.click('.tab[data-view="list"]');

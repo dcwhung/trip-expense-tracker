@@ -88,6 +88,8 @@
 - 淨低 Date / Amount / Account
 - 掣由 `Save` 變 `Confirm`
 - 確認完自動彈返做 expense 模式，留喺同一日
+- **改緊一筆 expense 時，`Top Up` 格會隱藏** —— 一筆支出唔應該變成 top-up
+- **改緊一筆 top-up 時，成個 Category 區隱藏** —— top-up 冇 category，中途轉類型即係另一筆紀錄
 - 共用同一條 date strip，所以 top-up 一樣可以用 `Today` 記喺出發前
 
 **未設定 trip dates**：整個表單隱藏，出阻擋畫面 + `alert()`，有掣直接去 Settings。
@@ -96,7 +98,7 @@
 - 頂部：總支出 + 筆數 + `22/8 → 28/8 · 7 days · Day 3 of 7`
 - **Budget left** — 每個 account 一張卡：餘額 + 「已 top up ／已使」
   - **少過 €100 → 紅色**；**≥ €100 或者未扣過數 → 綠色**
-- **Top-ups** — 逐筆列出，撳一下可以刪（入錯要救得返）
+- **Top-ups** — 逐筆列出，撳一下開返表單改（金額 / 日期 / account），有 Update / Delete / Cancel，同 expense 一致
 - **Expenses** — 按日期由新到舊分組，每組 `Day N · 日期 · 小計`；撳一筆去編輯／刪除
 
 ### Export
@@ -181,7 +183,9 @@ index.html · app.js · styles.css · sw.js · manifest.json · icons/ · .nojek
 **Budget**
 - [ ] Top up €500 → Records 見到 €500 減去已使
 - [ ] 用到剩低過 €100 → 卡變紅
-- [ ] Top-up 撳一下刪得返，餘額跟住更新
+- [ ] Top-up 撳一下入到編輯，改金額後餘額跟住郁，唔會多咗一筆
+- [ ] 喺編輯畫面撳 Delete 刪得返 top-up
+- [ ] 改緊 expense 時 `Top Up` 格唔見；改緊 top-up 時成個 Category 區唔見
 - [ ] Top up **唔會**出現喺總支出同 CSV
 
 **Export / 還原**

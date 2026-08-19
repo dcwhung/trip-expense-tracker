@@ -76,9 +76,11 @@ main {
 
 /* ── form ─────────────────────────────────── */
 .field { display: block; margin-bottom: 18px; }
+/* Same treatment as .section-head on Records, so both screens read as one
+   typographic system. */
 .label {
-  display: block; font-size: 13px; font-weight: 600;
-  color: var(--muted); margin-bottom: 7px; letter-spacing: 0.02em;
+  display: block; font-size: 13px; font-weight: 700;
+  color: var(--muted); margin: 0 2px 8px; letter-spacing: 0.02em;
 }
 .label em { font-style: normal; font-weight: 400; opacity: 0.75; }
 
